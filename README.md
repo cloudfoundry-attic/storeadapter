@@ -1,8 +1,9 @@
 storeadapter
 ============
 
-Golang interface for ETCD/ZooKeeper style datastores
+[![Build Status](https://travis-ci.org/cloudfoundry/storeadapter.png)](https://travis-ci.org/cloudfoundry/storeadapter)
 
+Golang interface for ETCD/ZooKeeper style datastores
 
 ### `storeadapter`
 
