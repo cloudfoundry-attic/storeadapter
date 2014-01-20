@@ -4,13 +4,13 @@ go:
 
 install:
   - go get -t -v ./...
-  - mkdir -p $GOPATH/bin
+  - mkdir -p $HOME/gopath/bin
   - go install -v github.com/onsi/ginkgo/ginkgo
   - go get github.com/coreos/etcd
   - pushd ../../coreos/etcd
   - git checkout v0.2.0
   - ./build
-  - mv ./etcd $GOPATH/bin
+  - mv ./etcd $HOME/gopath/bin
   - popd
   - mkdir -p $HOME/bin
   - pushd $HOME/bin
@@ -20,5 +20,5 @@ install:
   - popd
 
 script:
-  - export PATH=$HOME/bin/zookeeper/bin:$GOPATH/bin:$PATH 
+  - export PATH=$HOME/bin/zookeeper/bin:$HOME/gopath/bin:$PATH 
   - ginkgo -r -i --randomizeAllSpecs --failOnPending
