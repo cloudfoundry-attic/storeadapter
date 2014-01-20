@@ -6,7 +6,9 @@ install:
   - go get -t -v ./...
   - mkdir -p $GOPATH/bin
   - go install -v github.com/onsi/ginkgo/ginkgo
+  - go get github.com/coreos/etcd
   - pushd ../../coreos/etcd
+  - git checkout v0.2.0
   - ./build
   - mv ./etcd $GOPATH/bin
   - popd
