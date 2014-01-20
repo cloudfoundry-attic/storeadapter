@@ -3,7 +3,7 @@ go:
   - 1.2
 
 install:
-  - go get -v ./...
+  - go get -t -v ./...
   - mkdir -p $GOPATH/bin
   - go install -v github.com/onsi/ginkgo/ginkgo
   - pushd ../../coreos/etcd
