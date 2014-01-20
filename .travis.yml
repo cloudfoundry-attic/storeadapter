@@ -1,21 +1,12 @@
 language: go
 go:
-  - 1.1.2
-  - tip
-
-matrix:
-  allow_failures:
-    - go: tip
-
-before_install:
-  - git submodule update --init --recursive
+  - 1.2
 
 install:
-  - export GOPATH=$HOME/gopath/src/github.com/cloudfoundry/hm-workspace
+  - go get -v ./...
   - mkdir -p $GOPATH/bin
   - go install -v github.com/onsi/ginkgo/ginkgo
-  - go get -v github.com/apcera/gnatsd
-  - pushd ./src/github.com/coreos/etcd
+  - pushd ../../coreos/etcd
   - ./build
   - mv ./etcd $GOPATH/bin
   - popd
@@ -27,7 +18,5 @@ install:
   - popd
 
 script:
-  - export GOPATH=$HOME/gopath/src/github.com/cloudfoundry/hm-workspace
   - export PATH=$HOME/bin/zookeeper/bin:$GOPATH/bin:$PATH 
-  - cd $GOPATH/src/github.com/cloudfoundry/hm9000
-  - ginkgo -r -i --randomizeAllSpecs --failOnPending --skip="ZooKeeper"
+  - ginkgo -r -i --randomizeAllSpecs --failOnPending
