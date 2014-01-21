@@ -60,7 +60,7 @@ func (adapter *ETCDStoreAdapter) isNotAFileError(err error) bool {
 	return adapter.isETCDErrorWithCode(err, 102)
 }
 
-func (adapter *ETCDStoreAdapter) Set(nodes []StoreNode) error {
+func (adapter *ETCDStoreAdapter) SetMulti(nodes []StoreNode) error {
 	results := make(chan error, len(nodes))
 
 	for _, node := range nodes {

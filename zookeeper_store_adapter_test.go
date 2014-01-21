@@ -50,7 +50,7 @@ var _ = Describe("ZooKeeperStoreAdapter", func() {
 					Value: []byte("bar"),
 					TTL:   0,
 				}
-				err := adapter.Set(nodeArr)
+				err := adapter.SetMulti(nodeArr)
 				Ω(err).ShouldNot(HaveOccurred())
 			})
 
@@ -70,7 +70,7 @@ var _ = Describe("ZooKeeperStoreAdapter", func() {
 				BeforeEach(func() {
 					nodeArr[0].Value = []byte("baz")
 					nodeArr[0].TTL = 20
-					err := adapter.Set(nodeArr)
+					err := adapter.SetMulti(nodeArr)
 					Ω(err).ShouldNot(HaveOccurred())
 				})
 
@@ -91,7 +91,7 @@ var _ = Describe("ZooKeeperStoreAdapter", func() {
 					Value: []byte("waffle"),
 					TTL:   0,
 				}
-				err := adapter.Set(nodeArr)
+				err := adapter.SetMulti(nodeArr)
 				Ω(err).ShouldNot(HaveOccurred())
 			})
 
@@ -114,7 +114,7 @@ var _ = Describe("ZooKeeperStoreAdapter", func() {
 			Context("setting the key again", func() {
 				BeforeEach(func() {
 					nodeArr[0].Value = []byte("pancake")
-					err := adapter.Set(nodeArr)
+					err := adapter.SetMulti(nodeArr)
 					Ω(err).ShouldNot(HaveOccurred())
 				})
 
@@ -134,7 +134,7 @@ var _ = Describe("ZooKeeperStoreAdapter", func() {
 						Value: []byte("french toast"),
 						TTL:   0,
 					}
-					err := adapter.Set(nodeArr)
+					err := adapter.SetMulti(nodeArr)
 					Ω(err).Should(Equal(ErrorNodeIsDirectory), "Expecting a StoreErrorIsDirectory")
 				})
 			})
@@ -146,7 +146,7 @@ var _ = Describe("ZooKeeperStoreAdapter", func() {
 						Value: []byte("fried chicken"),
 						TTL:   0,
 					}
-					err := adapter.Set(nodeArr)
+					err := adapter.SetMulti(nodeArr)
 					Ω(err).ShouldNot(HaveOccurred())
 				})
 
@@ -169,7 +169,7 @@ var _ = Describe("ZooKeeperStoreAdapter", func() {
 					Value: []byte("waffle,banana"),
 					TTL:   30,
 				}
-				err := adapter.Set(nodeArr)
+				err := adapter.SetMulti(nodeArr)
 				Ω(err).ShouldNot(HaveOccurred())
 			})
 
@@ -248,7 +248,7 @@ var _ = Describe("ZooKeeperStoreAdapter", func() {
 					Value: []byte("waffle"),
 					TTL:   0,
 				}
-				err := adapter.Set(nodeArr)
+				err := adapter.SetMulti(nodeArr)
 				Ω(err).ShouldNot(HaveOccurred())
 			})
 
@@ -317,7 +317,7 @@ var _ = Describe("ZooKeeperStoreAdapter", func() {
 				TTL:   13,
 			}
 
-			err := adapter.Set([]StoreNode{breakfastNode, lunchNode, firstCourseDinnerNode, secondCourseDinnerNode})
+			err := adapter.SetMulti([]StoreNode{breakfastNode, lunchNode, firstCourseDinnerNode, secondCourseDinnerNode})
 			Ω(err).ShouldNot(HaveOccurred())
 		})
 
@@ -465,7 +465,7 @@ var _ = Describe("ZooKeeperStoreAdapter", func() {
 				TTL:   10,
 			})
 
-			err := adapter.Set(nodeArr)
+			err := adapter.SetMulti(nodeArr)
 			Ω(err).ShouldNot(HaveOccurred())
 		})
 
@@ -516,7 +516,7 @@ var _ = Describe("ZooKeeperStoreAdapter", func() {
 	Describe("Empty nodes that aren't directories", func() {
 		BeforeEach(func() {
 			nodeArr[0] = StoreNode{Key: "/placeholder", Value: []byte{}}
-			err := adapter.Set(nodeArr)
+			err := adapter.SetMulti(nodeArr)
 			Ω(err).ShouldNot(HaveOccurred())
 		})
 

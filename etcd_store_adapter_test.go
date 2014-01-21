@@ -41,7 +41,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 
 	Describe("Get", func() {
 		BeforeEach(func() {
-			err := adapter.Set([]StoreNode{breakfastNode, lunchNode})
+			err := adapter.SetMulti([]StoreNode{breakfastNode, lunchNode})
 			Ω(err).ShouldNot(HaveOccurred())
 		})
 
@@ -86,9 +86,9 @@ var _ = Describe("ETCD Store Adapter", func() {
 		})
 	})
 
-	Describe("Set", func() {
+	Describe("SetMulti", func() {
 		It("should be able to set multiple things to the store at once", func() {
-			err := adapter.Set([]StoreNode{breakfastNode, lunchNode})
+			err := adapter.SetMulti([]StoreNode{breakfastNode, lunchNode})
 			Ω(err).ShouldNot(HaveOccurred())
 
 			menu, err := adapter.ListRecursively("/menu")
@@ -100,13 +100,13 @@ var _ = Describe("ETCD Store Adapter", func() {
 
 		Context("Setting to an existing node", func() {
 			BeforeEach(func() {
-				err := adapter.Set([]StoreNode{breakfastNode, lunchNode})
+				err := adapter.SetMulti([]StoreNode{breakfastNode, lunchNode})
 				Ω(err).ShouldNot(HaveOccurred())
 			})
 
 			It("should be able to update existing entries", func() {
 				lunchNode.Value = []byte("steak")
-				err := adapter.Set([]StoreNode{breakfastNode, lunchNode})
+				err := adapter.SetMulti([]StoreNode{breakfastNode, lunchNode})
 				Ω(err).ShouldNot(HaveOccurred())
 
 				menu, err := adapter.ListRecursively("/menu")
@@ -122,7 +122,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 					Value: []byte("oops!"),
 				}
 
-				err := adapter.Set([]StoreNode{dirNode})
+				err := adapter.SetMulti([]StoreNode{dirNode})
 				Ω(err).Should(Equal(ErrorNodeIsDirectory))
 			})
 		})
@@ -137,7 +137,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 			})
 
 			It("should return a timeout error", func() {
-				err := adapter.Set([]StoreNode{breakfastNode})
+				err := adapter.SetMulti([]StoreNode{breakfastNode})
 				Ω(err).Should(Equal(ErrorTimeout))
 			})
 		})
@@ -145,7 +145,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 
 	Describe("List", func() {
 		BeforeEach(func() {
-			err := adapter.Set([]StoreNode{breakfastNode, lunchNode})
+			err := adapter.SetMulti([]StoreNode{breakfastNode, lunchNode})
 			Ω(err).ShouldNot(HaveOccurred())
 		})
 
@@ -176,7 +176,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 					Key:   "/menu/dinner/second_course",
 					Value: []byte("Brisket"),
 				}
-				err := adapter.Set([]StoreNode{firstCourseDinnerNode, secondCourseDinnerNode})
+				err := adapter.SetMulti([]StoreNode{firstCourseDinnerNode, secondCourseDinnerNode})
 
 				Ω(err).ShouldNot(HaveOccurred())
 			})
@@ -236,7 +236,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 
 		Context("when listing an empty directory", func() {
 			It("should return an empty list of breakfastNodes, and not error", func() {
-				err := adapter.Set([]StoreNode{
+				err := adapter.SetMulti([]StoreNode{
 					{
 						Key:   "/empty_dir/temp",
 						Value: []byte("foo"),
@@ -291,7 +291,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 
 	Describe("Delete", func() {
 		BeforeEach(func() {
-			err := adapter.Set([]StoreNode{breakfastNode, lunchNode})
+			err := adapter.SetMulti([]StoreNode{breakfastNode, lunchNode})
 			Ω(err).ShouldNot(HaveOccurred())
 		})
 
@@ -349,7 +349,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 	Context("When setting a key with a non-zero TTL", func() {
 		It("should stay in the store for the duration of its TTL and then disappear", func() {
 			breakfastNode.TTL = 1
-			err := adapter.Set([]StoreNode{breakfastNode})
+			err := adapter.SetMulti([]StoreNode{breakfastNode})
 			Ω(err).ShouldNot(HaveOccurred())
 
 			_, err = adapter.Get("/menu/breakfast")

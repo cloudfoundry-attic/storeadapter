@@ -49,7 +49,7 @@ func (adapter *ZookeeperStoreAdapter) Disconnect() error {
 	return nil
 }
 
-func (adapter *ZookeeperStoreAdapter) Set(nodes []StoreNode) error {
+func (adapter *ZookeeperStoreAdapter) SetMulti(nodes []StoreNode) error {
 	results := make(chan error, len(nodes))
 	for _, node := range nodes {
 		node := node
