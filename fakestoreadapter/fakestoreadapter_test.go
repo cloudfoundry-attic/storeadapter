@@ -35,7 +35,7 @@ var _ = Describe("Fakestoreadapter", func() {
 			Value: []byte("17"),
 		}
 
-		err := adapter.Set([]storeadapter.StoreNode{
+		err := adapter.SetMulti([]storeadapter.StoreNode{
 			breakfastNode,
 			lunchNode,
 			firstCourseDinnerNode,
@@ -57,7 +57,7 @@ var _ = Describe("Fakestoreadapter", func() {
 					Key:   "/menu",
 					Value: []byte("oops"),
 				}
-				err := adapter.Set([]storeadapter.StoreNode{badMenu})
+				err := adapter.SetMulti([]storeadapter.StoreNode{badMenu})
 				Ω(err).Should(Equal(storeadapter.ErrorNodeIsDirectory))
 
 				value, err := adapter.Get("/menu/breakfast")
@@ -72,7 +72,7 @@ var _ = Describe("Fakestoreadapter", func() {
 					Key:   "/menu/breakfast/elevensies",
 					Value: []byte("oops"),
 				}
-				err := adapter.Set([]storeadapter.StoreNode{badBreakfast})
+				err := adapter.SetMulti([]storeadapter.StoreNode{badBreakfast})
 				Ω(err).Should(Equal(storeadapter.ErrorNodeIsNotDirectory))
 
 				value, err := adapter.Get("/menu/breakfast")
@@ -87,7 +87,7 @@ var _ = Describe("Fakestoreadapter", func() {
 					Key:   "/menu/breakfast",
 					Value: []byte("crepes"),
 				}
-				err := adapter.Set([]storeadapter.StoreNode{discerningBreakfastNode})
+				err := adapter.SetMulti([]storeadapter.StoreNode{discerningBreakfastNode})
 				Ω(err).ShouldNot(HaveOccurred())
 
 				value, err := adapter.Get("/menu/breakfast")
@@ -103,7 +103,7 @@ var _ = Describe("Fakestoreadapter", func() {
 					Value: []byte("0"),
 				}
 
-				err := adapter.Set([]storeadapter.StoreNode{lessRandomNode})
+				err := adapter.SetMulti([]storeadapter.StoreNode{lessRandomNode})
 				Ω(err).Should(Equal(errors.New("injected set error")))
 
 				adapter.GetErrInjector = nil

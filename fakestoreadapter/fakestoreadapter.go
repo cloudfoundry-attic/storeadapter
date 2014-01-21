@@ -76,7 +76,7 @@ func (adapter *FakeStoreAdapter) Disconnect() error {
 	return adapter.DisconnectErr
 }
 
-func (adapter *FakeStoreAdapter) Set(nodes []storeadapter.StoreNode) error {
+func (adapter *FakeStoreAdapter) SetMulti(nodes []storeadapter.StoreNode) error {
 	for _, node := range nodes {
 		if adapter.SetErrInjector != nil && adapter.SetErrInjector.KeyRegexp.MatchString(node.Key) {
 			return adapter.SetErrInjector.Error
