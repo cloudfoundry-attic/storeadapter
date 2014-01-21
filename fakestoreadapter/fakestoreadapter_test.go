@@ -50,6 +50,23 @@ var _ = Describe("Fakestoreadapter", func() {
 		adapter.DeleteErrInjector = NewFakeStoreAdapterErrorInjector("dom$", errors.New("injected delete error"))
 	})
 
+	It("should satisfy the interface", func() {
+		var adapterInterface storeadapter.StoreAdapter
+		adapterInterface = adapter
+
+		Expect(adapterInterface)
+	})
+
+	It("should panic about unimplemented things", func() {
+		Ω(func() {
+			adapter.Create(storeadapter.StoreNode{})
+		}).Should(Panic())
+
+		Ω(func() {
+			adapter.Watch("/foo")
+		}).Should(Panic())
+	})
+
 	Describe("Setting", func() {
 		Context("when setting to a directory", func() {
 			It("should error", func() {

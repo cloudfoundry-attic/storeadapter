@@ -11,4 +11,5 @@ var (
 	ErrorTimeout            = errors.New("Store request timed out")
 	ErrorInvalidFormat      = errors.New("Node has invalid format")
 	ErrorInvalidTTL         = errors.New("Got an invalid TTL")
+	ErrorKeyExists          = errors.New("A node already exists at the requested key")
 )

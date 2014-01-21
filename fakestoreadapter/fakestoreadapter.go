@@ -109,6 +109,11 @@ func (adapter *FakeStoreAdapter) SetMulti(nodes []storeadapter.StoreNode) error 
 	return nil
 }
 
+func (adapter *FakeStoreAdapter) Create(node storeadapter.StoreNode) error {
+	panic("IMPLEMENT!")
+	return nil
+}
+
 func (adapter *FakeStoreAdapter) Get(key string) (storeadapter.StoreNode, error) {
 	if adapter.GetErrInjector != nil && adapter.GetErrInjector.KeyRegexp.MatchString(key) {
 		return storeadapter.StoreNode{}, adapter.GetErrInjector.Error
@@ -199,6 +204,11 @@ func (adapter *FakeStoreAdapter) Delete(keys ...string) error {
 	}
 
 	return nil
+}
+
+func (adapter *FakeStoreAdapter) Watch(key string) (events <-chan storeadapter.WatchEvent, stop chan<- bool, errors <-chan error) {
+	panic("IMPLEMENT!")
+	return nil, nil, nil
 }
 
 func (adapter *FakeStoreAdapter) keyComponents(key string) (components []string) {

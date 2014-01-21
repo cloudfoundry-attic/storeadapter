@@ -27,6 +27,10 @@ func NewETCDClusterRunner(startingPort int, numNodes int) *ETCDClusterRunner {
 }
 
 func (etcd *ETCDClusterRunner) Start() {
+	if etcd.running {
+		return
+	}
+
 	etcd.etcdCommands = make([]*exec.Cmd, etcd.numNodes)
 
 	for i := 0; i < etcd.numNodes; i++ {

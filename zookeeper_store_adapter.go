@@ -218,6 +218,16 @@ func (adapter *ZookeeperStoreAdapter) Delete(keys ...string) error {
 	return finalErr
 }
 
+func (adapter *ZookeeperStoreAdapter) Watch(key string) (<-chan WatchEvent, chan<- bool, <-chan error) {
+	panic("not implemented")
+	return nil, nil, nil
+}
+
+func (adapter *ZookeeperStoreAdapter) Create(node StoreNode) error {
+	panic("not implemented")
+	return nil
+}
+
 func (adapter *ZookeeperStoreAdapter) isMissingKeyError(err error) bool {
 	return err == zk.ErrNoNode
 }

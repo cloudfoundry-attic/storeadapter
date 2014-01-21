@@ -263,7 +263,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 			})
 		})
 
-		Context("When listing an entry", func() {
+		Context("when listing an entry", func() {
 			It("should return an error", func() {
 				value, err := adapter.ListRecursively("/menu/breakfast")
 				Ω(err).Should(HaveOccurred())
@@ -461,6 +461,241 @@ var _ = Describe("ETCD Store Adapter", func() {
 
 				close(done)
 			}, 10.0)
+		})
+	})
+
+	Describe("Creating", func() {
+		var node StoreNode
+		BeforeEach(func() {
+			node = StoreNode{Key: "/foo", Value: []byte("some value")}
+			err := adapter.Create(node)
+			Ω(err).ShouldNot(HaveOccurred())
+		})
+
+		It("creates the node at the given key", func() {
+			retrievedNode, err := adapter.Get("/foo")
+			Ω(err).ShouldNot(HaveOccurred())
+			Ω(retrievedNode).Should(Equal(node))
+		})
+
+		Context("when a node already exists at the key", func() {
+			It("returns an error", func() {
+				err := adapter.Create(node)
+				Ω(err).Should(Equal(ErrorKeyExists))
+			})
+		})
+
+		Context("when a directory exists at the given key", func() {
+			It("returns an error", func() {
+				err := adapter.Create(StoreNode{Key: "/dir/foo", Value: []byte("some value")})
+				Ω(err).ShouldNot(HaveOccurred())
+
+				err = adapter.Create(StoreNode{Key: "/dir", Value: []byte("some value")})
+				Ω(err).Should(Equal(ErrorKeyExists))
+			})
+		})
+	})
+
+	Describe("Watching", func() {
+		Context("when a node under the key is created", func() {
+			It("sends an event with CreateEvent type and the node's value", func(done Done) {
+				events, _, _ := adapter.Watch("/foo")
+
+				err := adapter.Create(StoreNode{
+					Key:   "/foo/a",
+					Value: []byte("new value"),
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				event := <-events
+				Expect(event.Type).To(Equal(CreateEvent))
+				Expect(event.Node.Key).To(Equal("/foo/a"))
+				Expect(string(event.Node.Value)).To(Equal("new value"))
+
+				close(done)
+			}, 5.0)
+		})
+
+		Context("when a node under the key is updated", func() {
+			BeforeEach(func() {
+				err := adapter.SetMulti([]StoreNode{
+					{
+						Key:   "/foo/a",
+						Value: []byte("some value"),
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("sends an event with UpdateEvent type and the node's value", func(done Done) {
+				events, _, _ := adapter.Watch("/foo")
+
+				err := adapter.SetMulti([]StoreNode{
+					{
+						Key:   "/foo/a",
+						Value: []byte("new value"),
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				event := <-events
+				Expect(event.Type).To(Equal(UpdateEvent))
+				Expect(event.Node.Key).To(Equal("/foo/a"))
+				Expect(string(event.Node.Value)).To(Equal("new value"))
+
+				close(done)
+			}, 5.0)
+		})
+
+		Context("when a node under the key is deleted", func() {
+			BeforeEach(func() {
+				err := adapter.SetMulti([]StoreNode{
+					{
+						Key:   "/foo/a",
+						Value: []byte("some value"),
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("sends an event with DeleteEvent type and the node's value", func(done Done) {
+				events, _, _ := adapter.Watch("/foo")
+
+				err := adapter.Delete("/foo/a")
+				Expect(err).ToNot(HaveOccurred())
+
+				event := <-events
+				Expect(event.Type).To(Equal(DeleteEvent))
+				Expect(event.Node.Key).To(Equal("/foo/a"))
+				Expect(string(event.Node.Value)).To(Equal("some value"))
+
+				close(done)
+			}, 5.0)
+		})
+
+		Context("when a node under the key expires", func() {
+			BeforeEach(func() {
+				err := adapter.SetMulti([]StoreNode{
+					{
+						Key:   "/foo/a",
+						Value: []byte("some value"),
+						TTL:   1,
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("sends an event with ExpireEvent type and the node's value", func(done Done) {
+				events, _, _ := adapter.Watch("/foo")
+
+				time.Sleep(2 * time.Second)
+
+				event := <-events
+				Expect(event.Type).To(Equal(ExpireEvent))
+				Expect(event.Node.Key).To(Equal("/foo/a"))
+				Expect(string(event.Node.Value)).To(Equal("some value"))
+
+				close(done)
+			}, 5.0)
+		})
+
+		Context("when told to stop watching", func() {
+			It("no longer notifies for any events", func(done Done) {
+				events, stop, _ := adapter.Watch("/foo")
+
+				err := adapter.Create(StoreNode{
+					Key:   "/foo/a",
+					Value: []byte("new value"),
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				event := <-events
+				Expect(event.Type).To(Equal(CreateEvent))
+				Expect(event.Node.Key).To(Equal("/foo/a"))
+				Expect(string(event.Node.Value)).To(Equal("new value"))
+
+				stop <- true
+
+				err = adapter.SetMulti([]StoreNode{
+					{
+						Key:   "/foo/b",
+						Value: []byte("new value"),
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				_, ok := <-events
+				Expect(ok).To(BeFalse())
+
+				close(done)
+			}, 5.0)
+		})
+
+		Context("when 1000 (current etcd constant) events occur between the start index and now", func() {
+			It("skips the missing event history and eventually catches up", func() {
+				events, _, errChan := adapter.Watch("/foo")
+
+				err := adapter.Create(StoreNode{
+					Key:   "/foo/a",
+					Value: []byte("new value"),
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				event := <-events
+				Expect(event.Type).To(Equal(CreateEvent))
+				Expect(event.Node.Key).To(Equal("/foo/a"))
+				Expect(string(event.Node.Value)).To(Equal("new value"))
+
+				for i, _ := range make([]bool, 1003) {
+					err := adapter.SetMulti([]StoreNode{
+						{
+							Key:   "/foo/a",
+							Value: []byte(fmt.Sprintf("%d", i+1)),
+						},
+					})
+					Expect(err).ToNot(HaveOccurred())
+				}
+
+				event = <-events
+				Expect(event.Type).To(Equal(UpdateEvent))
+				Expect(event.Node.Key).To(Equal("/foo/a"))
+				Expect(string(event.Node.Value)).To(Equal("1"))
+
+				// 2 and 3 will be missed (rolling window of 1000)
+
+				event = <-events
+				Expect(event.Type).To(Equal(UpdateEvent))
+				Expect(event.Node.Key).To(Equal("/foo/a"))
+				Expect(string(event.Node.Value)).To(Equal("4"))
+
+				Expect(errChan).To(BeEmpty())
+			})
+		})
+
+		Context("when etcd disappears mid-watch", func() {
+			AfterEach(func() {
+				etcdRunner.Start()
+			})
+
+			It("should write to the error channel", func(done Done) {
+				events, _, errChan := adapter.Watch("/foo")
+
+				err := adapter.Create(StoreNode{
+					Key:   "/foo/a",
+					Value: []byte("new value"),
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				etcdRunner.Stop()
+
+				event := <-events
+				Expect(event.Type).To(Equal(CreateEvent))
+				Expect(event.Node.Key).To(Equal("/foo/a"))
+
+				Ω(<-errChan).Should(Equal(ErrorTimeout))
+
+				close(done)
+			}, 5)
 		})
 	})
 })

@@ -33,31 +33,35 @@ func (adapter *ETCDStoreAdapter) Disconnect() error {
 	return nil
 }
 
-func (adapter *ETCDStoreAdapter) isETCDErrorWithCode(err error, code int) bool {
-	if err != nil {
-		etcdError, ok := err.(etcd.EtcdError)
-		if ok && etcdError.ErrorCode == code {
-			return true
-		}
+func (adapter *ETCDStoreAdapter) isEventIndexClearedError(err error) bool {
+	return adapter.etcdErrorCode(err) == 401
+}
 
-		etcdErrorP, ok := err.(*etcd.EtcdError)
-		if ok && etcdErrorP.ErrorCode == code {
-			return true
+func (adapter *ETCDStoreAdapter) etcdErrorCode(err error) int {
+	if err != nil {
+		switch err.(type) {
+		case etcd.EtcdError:
+			return err.(etcd.EtcdError).ErrorCode
+		case *etcd.EtcdError:
+			return err.(*etcd.EtcdError).ErrorCode
 		}
 	}
-	return false
+	return 0
 }
 
-func (adapter *ETCDStoreAdapter) isTimeoutError(err error) bool {
-	return adapter.isETCDErrorWithCode(err, 501)
-}
+func (adapter *ETCDStoreAdapter) convertError(err error) error {
+	switch adapter.etcdErrorCode(err) {
+	case 501:
+		return ErrorTimeout
+	case 100:
+		return ErrorKeyNotFound
+	case 102:
+		return ErrorNodeIsDirectory
+	case 105:
+		return ErrorKeyExists
+	}
 
-func (adapter *ETCDStoreAdapter) isMissingKeyError(err error) bool {
-	return adapter.isETCDErrorWithCode(err, 100)
-}
-
-func (adapter *ETCDStoreAdapter) isNotAFileError(err error) bool {
-	return adapter.isETCDErrorWithCode(err, 102)
+	return err
 }
 
 func (adapter *ETCDStoreAdapter) SetMulti(nodes []StoreNode) error {
@@ -81,15 +85,7 @@ func (adapter *ETCDStoreAdapter) SetMulti(nodes []StoreNode) error {
 		}
 	}
 
-	if adapter.isNotAFileError(err) {
-		return ErrorNodeIsDirectory
-	}
-
-	if adapter.isTimeoutError(err) {
-		return ErrorTimeout
-	}
-
-	return err
+	return adapter.convertError(err)
 }
 
 func (adapter *ETCDStoreAdapter) Get(key string) (StoreNode, error) {
@@ -105,15 +101,8 @@ func (adapter *ETCDStoreAdapter) Get(key string) (StoreNode, error) {
 
 	<-done
 
-	if adapter.isTimeoutError(err) {
-		return StoreNode{}, ErrorTimeout
-	}
-
-	if adapter.isMissingKeyError(err) {
-		return StoreNode{}, ErrorKeyNotFound
-	}
 	if err != nil {
-		return StoreNode{}, err
+		return StoreNode{}, adapter.convertError(err)
 	}
 
 	if response.Node.Dir {
@@ -141,16 +130,8 @@ func (adapter *ETCDStoreAdapter) ListRecursively(key string) (StoreNode, error) 
 
 	<-done
 
-	if adapter.isTimeoutError(err) {
-		return StoreNode{}, ErrorTimeout
-	}
-
-	if adapter.isMissingKeyError(err) {
-		return StoreNode{}, ErrorKeyNotFound
-	}
-
 	if err != nil {
-		return StoreNode{}, err
+		return StoreNode{}, adapter.convertError(err)
 	}
 
 	if !response.Node.Dir {
@@ -162,6 +143,77 @@ func (adapter *ETCDStoreAdapter) ListRecursively(key string) (StoreNode, error) 
 	}
 
 	return adapter.makeStoreNode(*response.Node), nil
+}
+
+func (adapter *ETCDStoreAdapter) Watch(key string) (<-chan WatchEvent, chan<- bool, <-chan error) {
+	events := make(chan WatchEvent)
+	errors := make(chan error, 1)
+	stop := make(chan bool, 1)
+
+	go adapter.dispatchWatchEvents(key, events, stop, errors)
+
+	return events, stop, errors
+}
+
+func (adapter *ETCDStoreAdapter) Create(node StoreNode) error {
+	results := make(chan error, 1)
+
+	adapter.workerPool.ScheduleWork(func() {
+		_, err := adapter.client.Create(node.Key, string(node.Value), node.TTL)
+		results <- err
+	})
+
+	return adapter.convertError(<-results)
+}
+
+func (adapter *ETCDStoreAdapter) Delete(keys ...string) error {
+	results := make(chan error, len(keys))
+
+	for _, key := range keys {
+		key := key
+		adapter.workerPool.ScheduleWork(func() {
+			_, err := adapter.client.Delete(key, true)
+			results <- err
+		})
+	}
+
+	var err error
+	numReceived := 0
+	for numReceived < len(keys) {
+		result := <-results
+		numReceived++
+		if err == nil {
+			err = result
+		}
+	}
+
+	return adapter.convertError(err)
+}
+
+func (adapter *ETCDStoreAdapter) dispatchWatchEvents(key string, events chan<- WatchEvent, stop <-chan bool, errors chan<- error) {
+	var index uint64
+
+	for {
+		response, err := adapter.client.Watch(key, index, true, nil, nil)
+		if err != nil {
+			if adapter.isEventIndexClearedError(err) {
+				index++
+				continue
+			} else {
+				errors <- adapter.convertError(err)
+				return
+			}
+		}
+
+		select {
+		case events <- adapter.makeWatchEvent(response):
+		case <-stop:
+			close(events)
+			return
+		}
+
+		index = response.Node.ModifiedIndex + 1
+	}
 }
 
 func (adapter *ETCDStoreAdapter) makeStoreNode(etcdNode etcd.Node) StoreNode {
@@ -187,36 +239,34 @@ func (adapter *ETCDStoreAdapter) makeStoreNode(etcdNode etcd.Node) StoreNode {
 	}
 }
 
-func (adapter *ETCDStoreAdapter) Delete(keys ...string) error {
-	results := make(chan error, len(keys))
+func (adapter *ETCDStoreAdapter) makeWatchEvent(event *etcd.Response) WatchEvent {
+	var eventType EventType
+	var node *etcd.Node
 
-	for _, key := range keys {
-		key := key
-		adapter.workerPool.ScheduleWork(func() {
-			_, err := adapter.client.Delete(key, true)
-			results <- err
-		})
+	if event.Action == "delete" {
+		eventType = DeleteEvent
+		node = event.PrevNode
 	}
 
-	var err error
-	numReceived := 0
-	for numReceived < len(keys) {
-		result := <-results
-		numReceived++
-		if err == nil {
-			err = result
-		}
+	if event.Action == "create" {
+		eventType = CreateEvent
+		node = event.Node
 	}
 
-	if adapter.isTimeoutError(err) {
-		return ErrorTimeout
+	if event.Action == "set" {
+		eventType = UpdateEvent
+		node = event.Node
 	}
 
-	if adapter.isMissingKeyError(err) {
-		return ErrorKeyNotFound
+	if event.Action == "expire" {
+		eventType = ExpireEvent
+		node = event.PrevNode
 	}
 
-	return err
+	return WatchEvent{
+		Type: eventType,
+		Node: adapter.makeStoreNode(*node),
+	}
 }
 
 func (adapter *ETCDStoreAdapter) lockKey(lockName string) string {
@@ -241,7 +291,8 @@ func (adapter *ETCDStoreAdapter) GetAndMaintainLock(lockName string, lockTTL uin
 
 	for {
 		_, err := adapter.client.Create(lockKey, currentLockValue, lockTTL)
-		if adapter.isTimeoutError(err) {
+		convertedError := adapter.convertError(err)
+		if convertedError == ErrorTimeout {
 			return nil, nil, ErrorTimeout
 		}
 
