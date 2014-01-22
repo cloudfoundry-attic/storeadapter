@@ -42,26 +42,3 @@ type StoreAdapter interface {
 	// If the store times out, returns an error.
 	GetAndMaintainLock(lockName string, lockTTL uint64) (lostLock <-chan bool, releaseLock chan<- bool, err error)
 }
-
-type StoreNode struct {
-	Key        string
-	Value      []byte
-	Dir        bool
-	TTL        uint64
-	ChildNodes []StoreNode
-	Index      uint64
-}
-
-type WatchEvent struct {
-	Type EventType
-	Node StoreNode
-}
-
-type EventType int
-
-const (
-	CreateEvent = EventType(iota)
-	DeleteEvent
-	ExpireEvent
-	UpdateEvent
-)

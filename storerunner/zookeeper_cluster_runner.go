@@ -1,6 +1,7 @@
 package storerunner
 
 import (
+	"github.com/cloudfoundry/storeadapter"
 	. "github.com/onsi/gomega"
 	"time"
 
@@ -27,39 +28,19 @@ func NewZookeeperClusterRunner(startingPort int, numNodes int) *ZookeeperCluster
 }
 
 func (zk *ZookeeperClusterRunner) Start() {
-	for i := 0; i < zk.numNodes; i++ {
-		zk.nukeArtifacts(i)
-		os.MkdirAll(zk.tmpPath(i), 0700)
-		zk.writeId(i)
-		zk.writeConfig(i)
-
-		cmd := exec.Command("zkServer.sh", "start", zk.configPath(i))
-		cmd.Env = append(os.Environ(), "ZOO_LOG_DIR="+zk.tmpPath(i))
-
-		out, err := cmd.Output()
-		Ω(err).ShouldNot(HaveOccurred(), "Make sure zookeeper is compiled and on your $PATH.")
-		Ω(string(out)).Should(ContainSubstring("STARTED"))
-
-		Eventually(func() interface{} {
-			return zk.exists(i)
-		}, 3, 0.05).Should(BeTrue(), "Expected Zookeeper to be up and running")
-	}
-	zk.running = true
+	zk.start(true)
 }
 
 func (zk *ZookeeperClusterRunner) Stop() {
-	if zk.running {
-		for i := 0; i < zk.numNodes; i++ {
-			cmd := exec.Command("zkServer.sh", "stop", zk.configPath(i))
-			out, err := cmd.Output()
+	zk.stop(true)
+}
 
-			Ω(err).ShouldNot(HaveOccurred(), "Zookeeper failed to stop!")
-			Ω(string(out)).Should(ContainSubstring("STOPPED"))
+func (zk *ZookeeperClusterRunner) GoAway() {
+	zk.stop(false)
+}
 
-			zk.nukeArtifacts(i)
-		}
-		zk.running = false
-	}
+func (zk *ZookeeperClusterRunner) ComeBack() {
+	zk.start(false)
 }
 
 func (zk *ZookeeperClusterRunner) NodeURLS() []string {
@@ -85,6 +66,11 @@ func (zk *ZookeeperClusterRunner) Reset() {
 
 	zk.deleteRecursively(client, "/")
 	client.Close()
+}
+
+func (zk *ZookeeperClusterRunner) Adapter() storeadapter.StoreAdapter {
+	panic("go make your own!")
+	return nil
 }
 
 func (zk *ZookeeperClusterRunner) deleteRecursively(client *zkClient.Conn, key string) {
@@ -113,6 +99,46 @@ func (zk *ZookeeperClusterRunner) deleteRecursively(client *zkClient.Conn, key s
 func (zk *ZookeeperClusterRunner) FastForwardTime(seconds int) {
 	//nothing to do here.  FastForwardTime is only present to fast-forward TTLs.
 	//Since TTLs are implemented by the driver, and time is always injected in, we are fine.
+}
+
+func (zk *ZookeeperClusterRunner) start(nuke bool) {
+	for i := 0; i < zk.numNodes; i++ {
+		if nuke {
+			zk.nukeArtifacts(i)
+		}
+		os.MkdirAll(zk.tmpPath(i), 0700)
+		zk.writeId(i)
+		zk.writeConfig(i)
+
+		cmd := exec.Command("zkServer.sh", "start", zk.configPath(i))
+		cmd.Env = append(os.Environ(), "ZOO_LOG_DIR="+zk.tmpPath(i))
+
+		out, err := cmd.Output()
+		Ω(err).ShouldNot(HaveOccurred(), "Make sure zookeeper is compiled and on your $PATH.")
+		Ω(string(out)).Should(ContainSubstring("STARTED"))
+
+		Eventually(func() interface{} {
+			return zk.exists(i)
+		}, 3, 0.05).Should(BeTrue(), "Expected Zookeeper to be up and running")
+	}
+	zk.running = true
+}
+
+func (zk *ZookeeperClusterRunner) stop(nuke bool) {
+	if zk.running {
+		for i := 0; i < zk.numNodes; i++ {
+			cmd := exec.Command("zkServer.sh", "stop", zk.configPath(i))
+			out, err := cmd.Output()
+
+			Ω(err).ShouldNot(HaveOccurred(), "Zookeeper failed to stop!")
+			Ω(string(out)).Should(ContainSubstring("STOPPED"))
+
+			if nuke {
+				zk.nukeArtifacts(i)
+			}
+		}
+		zk.running = false
+	}
 }
 
 func (zk *ZookeeperClusterRunner) writeConfig(index int) {

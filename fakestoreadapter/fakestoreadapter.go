@@ -4,6 +4,7 @@ import (
 	"github.com/cloudfoundry/storeadapter"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 type containerNode struct {
@@ -35,12 +36,15 @@ type FakeStoreAdapter struct {
 	GetErrInjector    *FakeStoreAdapterErrorInjector
 	ListErrInjector   *FakeStoreAdapterErrorInjector
 	DeleteErrInjector *FakeStoreAdapterErrorInjector
+	CreateErrInjector *FakeStoreAdapterErrorInjector
 
 	rootNode *containerNode
 
 	MaintainedLockName      string
 	GetAndMaintainLockError error
 	ReleaseLockChannel      chan bool
+
+	createLock *sync.Mutex
 }
 
 func New() *FakeStoreAdapter {
@@ -59,11 +63,14 @@ func (adapter *FakeStoreAdapter) Reset() {
 	adapter.GetErrInjector = nil
 	adapter.ListErrInjector = nil
 	adapter.DeleteErrInjector = nil
+	adapter.CreateErrInjector = nil
 
 	adapter.rootNode = &containerNode{
 		dir:   true,
 		nodes: make(map[string]*containerNode),
 	}
+
+	adapter.createLock = new(sync.Mutex)
 }
 
 func (adapter *FakeStoreAdapter) Connect() error {
@@ -110,8 +117,19 @@ func (adapter *FakeStoreAdapter) SetMulti(nodes []storeadapter.StoreNode) error 
 }
 
 func (adapter *FakeStoreAdapter) Create(node storeadapter.StoreNode) error {
-	panic("IMPLEMENT!")
-	return nil
+	adapter.createLock.Lock()
+	defer adapter.createLock.Unlock()
+
+	if adapter.CreateErrInjector != nil && adapter.CreateErrInjector.KeyRegexp.MatchString(node.Key) {
+		return adapter.CreateErrInjector.Error
+	}
+
+	_, err := adapter.Get(node.Key)
+	if err == nil {
+		return storeadapter.ErrorKeyExists
+	}
+
+	return adapter.SetMulti([]storeadapter.StoreNode{node})
 }
 
 func (adapter *FakeStoreAdapter) Get(key string) (storeadapter.StoreNode, error) {

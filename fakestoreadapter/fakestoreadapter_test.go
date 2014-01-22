@@ -48,6 +48,7 @@ var _ = Describe("Fakestoreadapter", func() {
 		adapter.GetErrInjector = NewFakeStoreAdapterErrorInjector("dom$", errors.New("injected get error"))
 		adapter.ListErrInjector = NewFakeStoreAdapterErrorInjector("dom$", errors.New("injected list error"))
 		adapter.DeleteErrInjector = NewFakeStoreAdapterErrorInjector("dom$", errors.New("injected delete error"))
+		adapter.CreateErrInjector = NewFakeStoreAdapterErrorInjector("dom$", errors.New("injected create error"))
 	})
 
 	It("should satisfy the interface", func() {
@@ -59,12 +60,45 @@ var _ = Describe("Fakestoreadapter", func() {
 
 	It("should panic about unimplemented things", func() {
 		Ω(func() {
-			adapter.Create(storeadapter.StoreNode{})
-		}).Should(Panic())
-
-		Ω(func() {
 			adapter.Watch("/foo")
 		}).Should(Panic())
+	})
+
+	Describe("Creating", func() {
+		Context("when creating an existing key", func() {
+			It("should error", func() {
+				err := adapter.Create(firstCourseDinnerNode)
+				Ω(err).Should(Equal(storeadapter.ErrorKeyExists))
+			})
+		})
+
+		Context("when creating a new key", func() {
+			It("should", func() {
+				thirdCourseDinnerNode := storeadapter.StoreNode{
+					Key:   "/menu/dinner/third",
+					Value: []byte("mashed potaters"),
+				}
+
+				err := adapter.Create(thirdCourseDinnerNode)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				value, err := adapter.Get("/menu/dinner/third")
+				Ω(err).ShouldNot(HaveOccurred())
+				Ω(value).Should(Equal(thirdCourseDinnerNode))
+			})
+		})
+
+		Context("when the key matches the error injector", func() {
+			It("should return the injected error", func() {
+				thirdCourseDinnerNode := storeadapter.StoreNode{
+					Key:   "/menu/dinner/random",
+					Value: []byte("mashed potaters"),
+				}
+
+				err := adapter.Create(thirdCourseDinnerNode)
+				Ω(err).Should(Equal(errors.New("injected create error")))
+			})
+		})
 	})
 
 	Describe("Setting", func() {

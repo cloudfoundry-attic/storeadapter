@@ -2,6 +2,8 @@ package storerunner
 
 import (
 	"fmt"
+	"github.com/cloudfoundry/storeadapter"
+	"github.com/cloudfoundry/storeadapter/workerpool"
 	. "github.com/onsi/gomega"
 
 	etcdclient "github.com/coreos/go-etcd/etcd"
@@ -27,46 +29,19 @@ func NewETCDClusterRunner(startingPort int, numNodes int) *ETCDClusterRunner {
 }
 
 func (etcd *ETCDClusterRunner) Start() {
-	if etcd.running {
-		return
-	}
-
-	etcd.etcdCommands = make([]*exec.Cmd, etcd.numNodes)
-
-	for i := 0; i < etcd.numNodes; i++ {
-		etcd.nukeArtifacts(i)
-		os.MkdirAll(etcd.tmpPath(i), 0700)
-		args := []string{"-data-dir", etcd.tmpPath(i), "-addr", etcd.clientUrl(i), "-peer-addr", etcd.serverUrl(i), "-name", etcd.nodeName(i)}
-		if i != 0 {
-			args = append(args, "-peers", etcd.serverUrl(0))
-		}
-
-		etcd.etcdCommands[i] = exec.Command("etcd", args...)
-
-		err := etcd.etcdCommands[i].Start()
-		Ω(err).ShouldNot(HaveOccurred(), "Make sure etcd is compiled and on your $PATH.")
-
-		Eventually(func() bool {
-			client := etcdclient.NewClient([]string{})
-			return client.SetCluster([]string{"http://" + etcd.clientUrl(i)})
-		}, 3, 0.05).Should(BeTrue(), "Expected ETCD to be up and running")
-	}
-
-	etcd.client = etcdclient.NewClient(etcd.NodeURLS())
-	etcd.running = true
+	etcd.start(true)
 }
 
 func (etcd *ETCDClusterRunner) Stop() {
-	if etcd.running {
-		for i := 0; i < etcd.numNodes; i++ {
-			etcd.etcdCommands[i].Process.Signal(syscall.SIGINT)
-			etcd.etcdCommands[i].Process.Wait()
-			etcd.nukeArtifacts(i)
-		}
-		etcd.etcdCommands = nil
-		etcd.running = false
-		etcd.client = nil
-	}
+	etcd.stop(true)
+}
+
+func (etcd *ETCDClusterRunner) GoAway() {
+	etcd.stop(false)
+}
+
+func (etcd *ETCDClusterRunner) ComeBack() {
+	etcd.start(false)
 }
 
 func (etcd *ETCDClusterRunner) NodeURLS() []string {
@@ -100,6 +75,61 @@ func (etcd *ETCDClusterRunner) FastForwardTime(seconds int) {
 		response, err := etcd.client.Get("/", false, true)
 		Ω(err).ShouldNot(HaveOccurred())
 		etcd.fastForwardTime(*response.Node, seconds)
+	}
+}
+
+func (etcd *ETCDClusterRunner) Adapter() storeadapter.StoreAdapter {
+	pool := workerpool.NewWorkerPool(10)
+	adapter := storeadapter.NewETCDStoreAdapter(etcd.NodeURLS(), pool)
+	adapter.Connect()
+	return adapter
+}
+
+func (etcd *ETCDClusterRunner) start(nuke bool) {
+	if etcd.running {
+		return
+	}
+
+	etcd.etcdCommands = make([]*exec.Cmd, etcd.numNodes)
+
+	for i := 0; i < etcd.numNodes; i++ {
+		if nuke {
+			etcd.nukeArtifacts(i)
+		}
+
+		os.MkdirAll(etcd.tmpPath(i), 0700)
+		args := []string{"-data-dir", etcd.tmpPath(i), "-addr", etcd.clientUrl(i), "-peer-addr", etcd.serverUrl(i), "-name", etcd.nodeName(i)}
+		if i != 0 {
+			args = append(args, "-peers", etcd.serverUrl(0))
+		}
+
+		etcd.etcdCommands[i] = exec.Command("etcd", args...)
+
+		err := etcd.etcdCommands[i].Start()
+		Ω(err).ShouldNot(HaveOccurred(), "Make sure etcd is compiled and on your $PATH.")
+
+		Eventually(func() bool {
+			client := etcdclient.NewClient([]string{})
+			return client.SetCluster([]string{"http://" + etcd.clientUrl(i)})
+		}, 3, 0.05).Should(BeTrue(), "Expected ETCD to be up and running")
+	}
+
+	etcd.client = etcdclient.NewClient(etcd.NodeURLS())
+	etcd.running = true
+}
+
+func (etcd *ETCDClusterRunner) stop(nuke bool) {
+	if etcd.running {
+		for i := 0; i < etcd.numNodes; i++ {
+			etcd.etcdCommands[i].Process.Signal(syscall.SIGINT)
+			etcd.etcdCommands[i].Process.Wait()
+			if nuke {
+				etcd.nukeArtifacts(i)
+			}
+		}
+		etcd.etcdCommands = nil
+		etcd.running = false
+		etcd.client = nil
 	}
 }
 
