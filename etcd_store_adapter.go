@@ -152,6 +152,8 @@ func (adapter *ETCDStoreAdapter) Watch(key string) (<-chan WatchEvent, chan<- bo
 
 	go adapter.dispatchWatchEvents(key, events, stop, errors)
 
+	time.Sleep(100 * time.Millisecond) //give the watcher a chance to connect
+
 	return events, stop, errors
 }
 
