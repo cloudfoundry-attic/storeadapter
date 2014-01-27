@@ -1,6 +1,7 @@
 package storerunner
 
 import (
+	"errors"
 	"github.com/cloudfoundry/storeadapter"
 	. "github.com/onsi/gomega"
 	"time"
@@ -101,6 +102,19 @@ func (zk *ZookeeperClusterRunner) FastForwardTime(seconds int) {
 	//Since TTLs are implemented by the driver, and time is always injected in, we are fine.
 }
 
+func (zk *ZookeeperClusterRunner) zkExecutable() (string, error) {
+	path, err := exec.LookPath("zkServer.sh")
+	if err == nil {
+		return path, nil
+	}
+	path, err = exec.LookPath("zkServer")
+	if err == nil {
+		return path, nil
+	}
+
+	return "", errors.New("Make sure ZooKeeper is compiled and on your $PATH")
+}
+
 func (zk *ZookeeperClusterRunner) start(nuke bool) {
 	for i := 0; i < zk.numNodes; i++ {
 		if nuke {
@@ -110,7 +124,10 @@ func (zk *ZookeeperClusterRunner) start(nuke bool) {
 		zk.writeId(i)
 		zk.writeConfig(i)
 
-		cmd := exec.Command("zkServer.sh", "start", zk.configPath(i))
+		zkExecutable, err := zk.zkExecutable()
+		Ω(err).ShouldNot(HaveOccurred())
+
+		cmd := exec.Command(zkExecutable, "start", zk.configPath(i))
 		cmd.Env = append(os.Environ(), "ZOO_LOG_DIR="+zk.tmpPath(i))
 
 		out, err := cmd.Output()
@@ -127,7 +144,10 @@ func (zk *ZookeeperClusterRunner) start(nuke bool) {
 func (zk *ZookeeperClusterRunner) stop(nuke bool) {
 	if zk.running {
 		for i := 0; i < zk.numNodes; i++ {
-			cmd := exec.Command("zkServer.sh", "stop", zk.configPath(i))
+			zkExecutable, err := zk.zkExecutable()
+			Ω(err).ShouldNot(HaveOccurred())
+
+			cmd := exec.Command(zkExecutable, "stop", zk.configPath(i))
 			out, err := cmd.Output()
 
 			Ω(err).ShouldNot(HaveOccurred(), "Zookeeper failed to stop!")
