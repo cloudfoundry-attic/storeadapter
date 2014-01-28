@@ -5,7 +5,7 @@ import (
 	"github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
 
-	"github.com/cloudfoundry/storeadapter/zookeeperstorerunner"
+	"github.com/cloudfoundry/storeadapter/storerunner/zookeeperstorerunner"
 
 	"os"
 	"os/signal"
