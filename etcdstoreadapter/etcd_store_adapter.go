@@ -1,6 +1,7 @@
-package storeadapter
+package etcdstoreadapter
 
 import (
+	"github.com/cloudfoundry/storeadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/nu7hatch/gouuid"
@@ -52,19 +53,19 @@ func (adapter *ETCDStoreAdapter) etcdErrorCode(err error) int {
 func (adapter *ETCDStoreAdapter) convertError(err error) error {
 	switch adapter.etcdErrorCode(err) {
 	case 501:
-		return ErrorTimeout
+		return storeadapter.ErrorTimeout
 	case 100:
-		return ErrorKeyNotFound
+		return storeadapter.ErrorKeyNotFound
 	case 102:
-		return ErrorNodeIsDirectory
+		return storeadapter.ErrorNodeIsDirectory
 	case 105:
-		return ErrorKeyExists
+		return storeadapter.ErrorKeyExists
 	}
 
 	return err
 }
 
-func (adapter *ETCDStoreAdapter) SetMulti(nodes []StoreNode) error {
+func (adapter *ETCDStoreAdapter) SetMulti(nodes []storeadapter.StoreNode) error {
 	results := make(chan error, len(nodes))
 
 	for _, node := range nodes {
@@ -88,7 +89,7 @@ func (adapter *ETCDStoreAdapter) SetMulti(nodes []StoreNode) error {
 	return adapter.convertError(err)
 }
 
-func (adapter *ETCDStoreAdapter) Get(key string) (StoreNode, error) {
+func (adapter *ETCDStoreAdapter) Get(key string) (storeadapter.StoreNode, error) {
 	done := make(chan bool, 1)
 	var response *etcd.Response
 	var err error
@@ -102,14 +103,14 @@ func (adapter *ETCDStoreAdapter) Get(key string) (StoreNode, error) {
 	<-done
 
 	if err != nil {
-		return StoreNode{}, adapter.convertError(err)
+		return storeadapter.StoreNode{}, adapter.convertError(err)
 	}
 
 	if response.Node.Dir {
-		return StoreNode{}, ErrorNodeIsDirectory
+		return storeadapter.StoreNode{}, storeadapter.ErrorNodeIsDirectory
 	}
 
-	return StoreNode{
+	return storeadapter.StoreNode{
 		Key:   response.Node.Key,
 		Value: []byte(response.Node.Value),
 		Dir:   response.Node.Dir,
@@ -117,7 +118,7 @@ func (adapter *ETCDStoreAdapter) Get(key string) (StoreNode, error) {
 	}, nil
 }
 
-func (adapter *ETCDStoreAdapter) ListRecursively(key string) (StoreNode, error) {
+func (adapter *ETCDStoreAdapter) ListRecursively(key string) (storeadapter.StoreNode, error) {
 	done := make(chan bool, 1)
 	var response *etcd.Response
 	var err error
@@ -131,22 +132,22 @@ func (adapter *ETCDStoreAdapter) ListRecursively(key string) (StoreNode, error) 
 	<-done
 
 	if err != nil {
-		return StoreNode{}, adapter.convertError(err)
+		return storeadapter.StoreNode{}, adapter.convertError(err)
 	}
 
 	if !response.Node.Dir {
-		return StoreNode{}, ErrorNodeIsNotDirectory
+		return storeadapter.StoreNode{}, storeadapter.ErrorNodeIsNotDirectory
 	}
 
 	if len(response.Node.Nodes) == 0 {
-		return StoreNode{Key: key, Dir: true, Value: []byte{}, ChildNodes: []StoreNode{}}, nil
+		return storeadapter.StoreNode{Key: key, Dir: true, Value: []byte{}, ChildNodes: []storeadapter.StoreNode{}}, nil
 	}
 
 	return adapter.makeStoreNode(*response.Node), nil
 }
 
-func (adapter *ETCDStoreAdapter) Watch(key string) (<-chan WatchEvent, chan<- bool, <-chan error) {
-	events := make(chan WatchEvent)
+func (adapter *ETCDStoreAdapter) Watch(key string) (<-chan storeadapter.WatchEvent, chan<- bool, <-chan error) {
+	events := make(chan storeadapter.WatchEvent)
 	errors := make(chan error, 1)
 	stop := make(chan bool, 1)
 
@@ -157,7 +158,7 @@ func (adapter *ETCDStoreAdapter) Watch(key string) (<-chan WatchEvent, chan<- bo
 	return events, stop, errors
 }
 
-func (adapter *ETCDStoreAdapter) Create(node StoreNode) error {
+func (adapter *ETCDStoreAdapter) Create(node storeadapter.StoreNode) error {
 	results := make(chan error, 1)
 
 	adapter.workerPool.ScheduleWork(func() {
@@ -192,7 +193,7 @@ func (adapter *ETCDStoreAdapter) Delete(keys ...string) error {
 	return adapter.convertError(err)
 }
 
-func (adapter *ETCDStoreAdapter) dispatchWatchEvents(key string, events chan<- WatchEvent, stop <-chan bool, errors chan<- error) {
+func (adapter *ETCDStoreAdapter) dispatchWatchEvents(key string, events chan<- storeadapter.WatchEvent, stop <-chan bool, errors chan<- error) {
 	var index uint64
 
 	for {
@@ -218,13 +219,13 @@ func (adapter *ETCDStoreAdapter) dispatchWatchEvents(key string, events chan<- W
 	}
 }
 
-func (adapter *ETCDStoreAdapter) makeStoreNode(etcdNode etcd.Node) StoreNode {
+func (adapter *ETCDStoreAdapter) makeStoreNode(etcdNode etcd.Node) storeadapter.StoreNode {
 	if etcdNode.Dir {
-		node := StoreNode{
+		node := storeadapter.StoreNode{
 			Key:        etcdNode.Key,
 			Dir:        true,
 			Value:      []byte{},
-			ChildNodes: []StoreNode{},
+			ChildNodes: []storeadapter.StoreNode{},
 		}
 
 		for _, child := range etcdNode.Nodes {
@@ -233,7 +234,7 @@ func (adapter *ETCDStoreAdapter) makeStoreNode(etcdNode etcd.Node) StoreNode {
 
 		return node
 	} else {
-		return StoreNode{
+		return storeadapter.StoreNode{
 			Key:   etcdNode.Key,
 			Value: []byte(etcdNode.Value),
 			TTL:   uint64(etcdNode.TTL),
@@ -241,31 +242,31 @@ func (adapter *ETCDStoreAdapter) makeStoreNode(etcdNode etcd.Node) StoreNode {
 	}
 }
 
-func (adapter *ETCDStoreAdapter) makeWatchEvent(event *etcd.Response) WatchEvent {
-	var eventType EventType
+func (adapter *ETCDStoreAdapter) makeWatchEvent(event *etcd.Response) storeadapter.WatchEvent {
+	var eventType storeadapter.EventType
 	var node *etcd.Node
 
 	if event.Action == "delete" {
-		eventType = DeleteEvent
+		eventType = storeadapter.DeleteEvent
 		node = event.PrevNode
 	}
 
 	if event.Action == "create" {
-		eventType = CreateEvent
+		eventType = storeadapter.CreateEvent
 		node = event.Node
 	}
 
 	if event.Action == "set" {
-		eventType = UpdateEvent
+		eventType = storeadapter.UpdateEvent
 		node = event.Node
 	}
 
 	if event.Action == "expire" {
-		eventType = ExpireEvent
+		eventType = storeadapter.ExpireEvent
 		node = event.PrevNode
 	}
 
-	return WatchEvent{
+	return storeadapter.WatchEvent{
 		Type: eventType,
 		Node: adapter.makeStoreNode(*node),
 	}
@@ -277,7 +278,7 @@ func (adapter *ETCDStoreAdapter) lockKey(lockName string) string {
 
 func (adapter *ETCDStoreAdapter) GetAndMaintainLock(lockName string, lockTTL uint64) (lostLock <-chan bool, releaseLock chan<- bool, err error) {
 	if lockTTL == 0 {
-		return nil, nil, ErrorInvalidTTL
+		return nil, nil, storeadapter.ErrorInvalidTTL
 	}
 
 	guid, err := uuid.NewV4()
@@ -294,8 +295,8 @@ func (adapter *ETCDStoreAdapter) GetAndMaintainLock(lockName string, lockTTL uin
 	for {
 		_, err := adapter.client.Create(lockKey, currentLockValue, lockTTL)
 		convertedError := adapter.convertError(err)
-		if convertedError == ErrorTimeout {
-			return nil, nil, ErrorTimeout
+		if convertedError == storeadapter.ErrorTimeout {
+			return nil, nil, storeadapter.ErrorTimeout
 		}
 
 		if err == nil {

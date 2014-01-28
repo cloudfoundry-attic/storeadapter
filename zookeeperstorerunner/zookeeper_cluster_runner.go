@@ -1,4 +1,4 @@
-package storerunner
+package zookeeperstorerunner
 
 import (
 	"errors"

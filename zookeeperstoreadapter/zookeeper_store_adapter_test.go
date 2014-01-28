@@ -1,9 +1,10 @@
-package storeadapter_test
+package zookeeperstoreadapter_test
 
 import (
 	"github.com/cloudfoundry/gunk/timeprovider/faketimeprovider"
 	. "github.com/cloudfoundry/storeadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
+	. "github.com/cloudfoundry/storeadapter/zookeeperstoreadapter"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 

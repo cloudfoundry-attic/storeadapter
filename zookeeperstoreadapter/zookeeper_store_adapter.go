@@ -1,8 +1,9 @@
-package storeadapter
+package zookeeperstoreadapter
 
 import (
 	"fmt"
 	"github.com/cloudfoundry/gunk/timeprovider"
+	"github.com/cloudfoundry/storeadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	"github.com/samuel/go-zookeeper/zk"
 	"math"
@@ -14,7 +15,7 @@ import (
 )
 
 type fetchedNode struct {
-	node      StoreNode
+	node      storeadapter.StoreNode
 	err       error
 	isExpired bool
 }
@@ -49,7 +50,7 @@ func (adapter *ZookeeperStoreAdapter) Disconnect() error {
 	return nil
 }
 
-func (adapter *ZookeeperStoreAdapter) SetMulti(nodes []StoreNode) error {
+func (adapter *ZookeeperStoreAdapter) SetMulti(nodes []storeadapter.StoreNode) error {
 	results := make(chan error, len(nodes))
 	for _, node := range nodes {
 		node := node
@@ -62,7 +63,7 @@ func (adapter *ZookeeperStoreAdapter) SetMulti(nodes []StoreNode) error {
 				return
 			}
 			if stat.NumChildren > 0 {
-				results <- ErrorNodeIsDirectory
+				results <- storeadapter.ErrorNodeIsDirectory
 				return
 			}
 
@@ -87,43 +88,43 @@ func (adapter *ZookeeperStoreAdapter) SetMulti(nodes []StoreNode) error {
 	}
 
 	if adapter.isTimeoutError(err) {
-		return ErrorTimeout
+		return storeadapter.ErrorTimeout
 	}
 
 	return err
 }
 
-func (adapter *ZookeeperStoreAdapter) Get(key string) (node StoreNode, err error) {
+func (adapter *ZookeeperStoreAdapter) Get(key string) (node storeadapter.StoreNode, err error) {
 	fetchedNode := adapter.getWithTTLPolicy(key)
 
 	if fetchedNode.err != nil {
-		return StoreNode{}, fetchedNode.err
+		return storeadapter.StoreNode{}, fetchedNode.err
 	}
 
 	if fetchedNode.isExpired {
-		return StoreNode{}, ErrorKeyNotFound
+		return storeadapter.StoreNode{}, storeadapter.ErrorKeyNotFound
 	}
 
 	if fetchedNode.node.Dir {
-		return StoreNode{}, ErrorNodeIsDirectory
+		return storeadapter.StoreNode{}, storeadapter.ErrorNodeIsDirectory
 	}
 
 	return fetchedNode.node, nil
 }
 
-func (adapter *ZookeeperStoreAdapter) ListRecursively(key string) (StoreNode, error) {
+func (adapter *ZookeeperStoreAdapter) ListRecursively(key string) (storeadapter.StoreNode, error) {
 	nodeKeys, _, err := adapter.client.Children(key)
 
 	if adapter.isTimeoutError(err) {
-		return StoreNode{}, ErrorTimeout
+		return storeadapter.StoreNode{}, storeadapter.ErrorTimeout
 	}
 
 	if adapter.isMissingKeyError(err) {
-		return StoreNode{}, ErrorKeyNotFound
+		return storeadapter.StoreNode{}, storeadapter.ErrorKeyNotFound
 	}
 
 	if err != nil {
-		return StoreNode{}, err
+		return storeadapter.StoreNode{}, err
 	}
 
 	if key == "/" {
@@ -132,16 +133,16 @@ func (adapter *ZookeeperStoreAdapter) ListRecursively(key string) (StoreNode, er
 
 	if len(nodeKeys) == 0 {
 		if adapter.isNodeDirectory(key) {
-			return StoreNode{Key: key, Dir: true, ChildNodes: []StoreNode{}}, nil
+			return storeadapter.StoreNode{Key: key, Dir: true, ChildNodes: []storeadapter.StoreNode{}}, nil
 		} else {
-			return StoreNode{}, ErrorNodeIsNotDirectory
+			return storeadapter.StoreNode{}, storeadapter.ErrorNodeIsNotDirectory
 		}
 	}
 
 	childNodes, err := adapter.getMultipleNodesSimultaneously(key, nodeKeys)
 
 	if err != nil {
-		return StoreNode{}, err
+		return storeadapter.StoreNode{}, err
 	}
 
 	//This could be done concurrently too
@@ -152,13 +153,13 @@ func (adapter *ZookeeperStoreAdapter) ListRecursively(key string) (StoreNode, er
 		if node.Dir == true {
 			listedNode, err := adapter.ListRecursively(node.Key)
 			if err != nil {
-				return StoreNode{}, err
+				return storeadapter.StoreNode{}, err
 			}
 			childNodes[i] = listedNode
 		}
 	}
 
-	return StoreNode{
+	return storeadapter.StoreNode{
 		Key:        key,
 		Dir:        true,
 		ChildNodes: childNodes,
@@ -171,19 +172,19 @@ func (adapter *ZookeeperStoreAdapter) Delete(keys ...string) error {
 	for _, key := range keys {
 		exists, stat, err := adapter.client.Exists(key)
 		if adapter.isTimeoutError(err) {
-			return ErrorTimeout
+			return storeadapter.ErrorTimeout
 		}
 
 		if err != nil {
 			if finalErr == nil {
-				finalErr = ErrorKeyNotFound
+				finalErr = storeadapter.ErrorKeyNotFound
 			}
 			continue
 		}
 
 		if !exists {
 			if finalErr == nil {
-				finalErr = ErrorKeyNotFound
+				finalErr = storeadapter.ErrorKeyNotFound
 			}
 			continue
 		}
@@ -218,12 +219,12 @@ func (adapter *ZookeeperStoreAdapter) Delete(keys ...string) error {
 	return finalErr
 }
 
-func (adapter *ZookeeperStoreAdapter) Watch(key string) (<-chan WatchEvent, chan<- bool, <-chan error) {
+func (adapter *ZookeeperStoreAdapter) Watch(key string) (<-chan storeadapter.WatchEvent, chan<- bool, <-chan error) {
 	panic("not implemented")
 	return nil, nil, nil
 }
 
-func (adapter *ZookeeperStoreAdapter) Create(node StoreNode) error {
+func (adapter *ZookeeperStoreAdapter) Create(node storeadapter.StoreNode) error {
 	panic("not implemented")
 	return nil
 }
@@ -260,11 +261,11 @@ func (adapter *ZookeeperStoreAdapter) getWithTTLPolicy(key string) fetchedNode {
 	data, _, err := adapter.client.Get(key)
 
 	if adapter.isTimeoutError(err) {
-		return fetchedNode{err: ErrorTimeout}
+		return fetchedNode{err: storeadapter.ErrorTimeout}
 	}
 
 	if adapter.isMissingKeyError(err) {
-		return fetchedNode{err: ErrorKeyNotFound}
+		return fetchedNode{err: storeadapter.ErrorKeyNotFound}
 	}
 
 	if err != nil {
@@ -272,7 +273,7 @@ func (adapter *ZookeeperStoreAdapter) getWithTTLPolicy(key string) fetchedNode {
 	}
 
 	if len(data) == 0 {
-		return fetchedNode{node: StoreNode{
+		return fetchedNode{node: storeadapter.StoreNode{
 			Key:   key,
 			Value: data,
 			Dir:   true,
@@ -281,7 +282,7 @@ func (adapter *ZookeeperStoreAdapter) getWithTTLPolicy(key string) fetchedNode {
 
 	value, TTL, updateTime, err := adapter.decode(data)
 	if err != nil {
-		return fetchedNode{err: ErrorInvalidFormat}
+		return fetchedNode{err: storeadapter.ErrorInvalidFormat}
 	}
 
 	if TTL > 0 {
@@ -297,14 +298,14 @@ func (adapter *ZookeeperStoreAdapter) getWithTTLPolicy(key string) fetchedNode {
 		}
 	}
 
-	return fetchedNode{node: StoreNode{
+	return fetchedNode{node: storeadapter.StoreNode{
 		Key:   key,
 		Value: value,
 		TTL:   TTL,
 	}}
 }
 
-func (adapter *ZookeeperStoreAdapter) createNode(node StoreNode) error {
+func (adapter *ZookeeperStoreAdapter) createNode(node storeadapter.StoreNode) error {
 	root := path.Dir(node.Key)
 	var err error
 	exists, _, err := adapter.client.Exists(root)
@@ -312,7 +313,7 @@ func (adapter *ZookeeperStoreAdapter) createNode(node StoreNode) error {
 		return err
 	}
 	if !exists {
-		err = adapter.createNode(StoreNode{
+		err = adapter.createNode(storeadapter.StoreNode{
 			Key:   root,
 			Value: []byte{},
 			TTL:   0,
@@ -337,7 +338,7 @@ func (adapter *ZookeeperStoreAdapter) createNode(node StoreNode) error {
 	return err
 }
 
-func (adapter *ZookeeperStoreAdapter) getMultipleNodesSimultaneously(rootKey string, nodeKeys []string) (results []StoreNode, err error) {
+func (adapter *ZookeeperStoreAdapter) getMultipleNodesSimultaneously(rootKey string, nodeKeys []string) (results []storeadapter.StoreNode, err error) {
 	fetchedNodes := make(chan fetchedNode, len(nodeKeys))
 	for _, nodeKey := range nodeKeys {
 		nodeKey := adapter.combineKeys(rootKey, nodeKey)
@@ -361,7 +362,7 @@ func (adapter *ZookeeperStoreAdapter) getMultipleNodesSimultaneously(rootKey str
 	}
 
 	if err != nil {
-		return []StoreNode{}, err
+		return []storeadapter.StoreNode{}, err
 	}
 
 	return results, nil

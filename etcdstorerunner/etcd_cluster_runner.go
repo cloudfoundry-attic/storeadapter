@@ -1,8 +1,9 @@
-package storerunner
+package etcdstorerunner
 
 import (
 	"fmt"
 	"github.com/cloudfoundry/storeadapter"
+	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	. "github.com/onsi/gomega"
 
@@ -80,7 +81,7 @@ func (etcd *ETCDClusterRunner) FastForwardTime(seconds int) {
 
 func (etcd *ETCDClusterRunner) Adapter() storeadapter.StoreAdapter {
 	pool := workerpool.NewWorkerPool(10)
-	adapter := storeadapter.NewETCDStoreAdapter(etcd.NodeURLS(), pool)
+	adapter := etcdstoreadapter.NewETCDStoreAdapter(etcd.NodeURLS(), pool)
 	adapter.Connect()
 	return adapter
 }

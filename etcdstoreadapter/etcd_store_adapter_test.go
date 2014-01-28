@@ -1,8 +1,9 @@
-package storeadapter_test
+package etcdstoreadapter_test
 
 import (
 	"fmt"
 	. "github.com/cloudfoundry/storeadapter"
+	. "github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
