@@ -6,7 +6,7 @@ install:
   - go get -t -v ./...
   - mkdir -p $HOME/gopath/bin
   - go install -v github.com/onsi/ginkgo/ginkgo
-  - go get github.com/coreos/etcd
+  - git clone https://github.com/coreos/etcd ../../coreos/etcd
   - pushd ../../coreos/etcd
   - ./build
   - mv ./bin/etcd $HOME/gopath/bin
