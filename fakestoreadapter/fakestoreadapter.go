@@ -45,6 +45,9 @@ type FakeStoreAdapter struct {
 	ReleaseLockChannel      chan bool
 
 	createLock *sync.Mutex
+
+	eventChannel chan storeadapter.WatchEvent
+	sendEvents   bool
 }
 
 func New() *FakeStoreAdapter {
@@ -71,6 +74,8 @@ func (adapter *FakeStoreAdapter) Reset() {
 	}
 
 	adapter.createLock = new(sync.Mutex)
+	adapter.sendEvents = false
+	adapter.eventChannel = make(chan storeadapter.WatchEvent)
 }
 
 func (adapter *FakeStoreAdapter) Connect() error {
@@ -83,8 +88,27 @@ func (adapter *FakeStoreAdapter) Disconnect() error {
 	return adapter.DisconnectErr
 }
 
+func (adapter *FakeStoreAdapter) sendEvent(node storeadapter.StoreNode, eventType storeadapter.EventType) {
+	if adapter.sendEvents {
+		go func() {
+			adapter.eventChannel <- storeadapter.WatchEvent{
+				Type: eventType,
+				Node: node,
+			}
+		}()
+	}
+}
+
 func (adapter *FakeStoreAdapter) SetMulti(nodes []storeadapter.StoreNode) error {
+	var eventType storeadapter.EventType
+
 	for _, node := range nodes {
+
+		_, err := adapter.Get(node.Key)
+		if err == nil {
+			eventType = storeadapter.UpdateEvent
+		}
+
 		if adapter.SetErrInjector != nil && adapter.SetErrInjector.KeyRegexp.MatchString(node.Key) {
 			return adapter.SetErrInjector.Error
 		}
@@ -112,7 +136,10 @@ func (adapter *FakeStoreAdapter) SetMulti(nodes []storeadapter.StoreNode) error 
 				}
 			}
 		}
+
+		adapter.sendEvent(node, eventType)
 	}
+
 	return nil
 }
 
@@ -202,6 +229,8 @@ func (adapter *FakeStoreAdapter) listContainerNode(key string, container *contai
 
 func (adapter *FakeStoreAdapter) Delete(keys ...string) error {
 	for _, key := range keys {
+		node, _ := adapter.Get(key)
+
 		if adapter.DeleteErrInjector != nil && adapter.DeleteErrInjector.KeyRegexp.MatchString(key) {
 			return adapter.DeleteErrInjector.Error
 		}
@@ -219,14 +248,18 @@ func (adapter *FakeStoreAdapter) Delete(keys ...string) error {
 		}
 
 		delete(parentNode.nodes, components[len(components)-1])
+		adapter.sendEvent(node, storeadapter.DeleteEvent)
 	}
 
 	return nil
 }
 
 func (adapter *FakeStoreAdapter) Watch(key string) (events <-chan storeadapter.WatchEvent, stop chan<- bool, errors <-chan error) {
-	panic("IMPLEMENT!")
-	return nil, nil, nil
+	adapter.sendEvents = true
+	errors = make(chan error, 1)
+	// We haven't implemented stop yet
+
+	return adapter.eventChannel, nil, errors
 }
 
 func (adapter *FakeStoreAdapter) keyComponents(key string) (components []string) {

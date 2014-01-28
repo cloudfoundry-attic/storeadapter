@@ -58,12 +58,6 @@ var _ = Describe("Fakestoreadapter", func() {
 		Expect(adapterInterface)
 	})
 
-	It("should panic about unimplemented things", func() {
-		Ω(func() {
-			adapter.Watch("/foo")
-		}).Should(Panic())
-	})
-
 	Describe("Creating", func() {
 		Context("when creating an existing key", func() {
 			It("should error", func() {
@@ -326,6 +320,84 @@ var _ = Describe("Fakestoreadapter", func() {
 				Ω(err).ShouldNot(HaveOccurred())
 				Ω(value).Should(Equal(breakfastNode))
 			})
+		})
+	})
+
+	Describe("Watching", func() {
+		Context("when a node under the key is created", func() {
+			It("sends an event with CreateEvent type and the node's value", func(done Done) {
+				events, _, _ := adapter.Watch("/foo")
+
+				err := adapter.Create(storeadapter.StoreNode{
+					Key:   "/foo/a",
+					Value: []byte("new value"),
+				})
+				Expect(err).ToNot(HaveOccurred())
+				event := <-events
+
+				Expect(event.Type).To(Equal(storeadapter.CreateEvent))
+				Expect(event.Node.Key).To(Equal("/foo/a"))
+				Expect(string(event.Node.Value)).To(Equal("new value"))
+
+				close(done)
+			}, 5.0)
+		})
+
+		Context("when a node under the key is updated", func() {
+			BeforeEach(func() {
+				err := adapter.SetMulti([]storeadapter.StoreNode{
+					{
+						Key:   "/foo/a",
+						Value: []byte("some value"),
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("sends an event with UpdateEvent type and the node's value", func(done Done) {
+				events, _, _ := adapter.Watch("/foo")
+
+				err := adapter.SetMulti([]storeadapter.StoreNode{
+					{
+						Key:   "/foo/a",
+						Value: []byte("new value"),
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				event := <-events
+				Expect(event.Type).To(Equal(storeadapter.UpdateEvent))
+				Expect(event.Node.Key).To(Equal("/foo/a"))
+				Expect(string(event.Node.Value)).To(Equal("new value"))
+
+				close(done)
+			}, 5.0)
+		})
+
+		Context("when a node under the key is deleted", func() {
+			BeforeEach(func() {
+				err := adapter.SetMulti([]storeadapter.StoreNode{
+					{
+						Key:   "/foo/a",
+						Value: []byte("some value"),
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("sends an event with DeleteEvent type and the node's value", func(done Done) {
+				events, _, _ := adapter.Watch("/foo")
+
+				err := adapter.Delete("/foo/a")
+				Expect(err).ToNot(HaveOccurred())
+
+				event := <-events
+				Expect(event.Type).To(Equal(storeadapter.DeleteEvent))
+				Expect(event.Node.Key).To(Equal("/foo/a"))
+				Expect(string(event.Node.Value)).To(Equal("some value"))
+
+				close(done)
+			}, 5.0)
 		})
 	})
 })
