@@ -399,5 +399,19 @@ var _ = Describe("Fakestoreadapter", func() {
 				close(done)
 			}, 5.0)
 		})
+
+		Context("when a watch error occurs", func() {
+			It("returns it to the watcher over the errs channel", func(done Done) {
+				_, _, errs := adapter.Watch("/foo")
+
+				disaster := errors.New("oh no!")
+
+				adapter.WatchErrChannel <- disaster
+
+				Expect(<-errs).To(Equal(disaster))
+
+				close(done)
+			})
+		})
 	})
 })

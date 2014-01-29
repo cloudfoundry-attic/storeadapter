@@ -38,6 +38,8 @@ type FakeStoreAdapter struct {
 	DeleteErrInjector *FakeStoreAdapterErrorInjector
 	CreateErrInjector *FakeStoreAdapterErrorInjector
 
+	WatchErrChannel chan error
+
 	rootNode *containerNode
 
 	MaintainedLockName      string
@@ -256,10 +258,11 @@ func (adapter *FakeStoreAdapter) Delete(keys ...string) error {
 
 func (adapter *FakeStoreAdapter) Watch(key string) (events <-chan storeadapter.WatchEvent, stop chan<- bool, errors <-chan error) {
 	adapter.sendEvents = true
-	errors = make(chan error, 1)
+	adapter.WatchErrChannel = make(chan error, 1)
+
 	// We haven't implemented stop yet
 
-	return adapter.eventChannel, nil, errors
+	return adapter.eventChannel, nil, adapter.WatchErrChannel
 }
 
 func (adapter *FakeStoreAdapter) keyComponents(key string) (components []string) {
