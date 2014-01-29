@@ -6,8 +6,9 @@ import (
 )
 
 type WorkerPool struct {
-	workerChannels []chan func ()
-	indexProvider  chan chan int
+	workQueue chan func ()
+	workerCloseChannels []chan bool
+
 	lock           *sync.RWMutex
 	stopped        bool
 
@@ -17,39 +18,19 @@ type WorkerPool struct {
 
 func NewWorkerPool(poolSize int) (pool *WorkerPool) {
 	pool = &WorkerPool{
-		workerChannels: make([]chan func (), poolSize),
-		indexProvider:  make(chan chan int, 0),
+		workQueue: make(chan func (), 0),
+		workerCloseChannels: make([]chan bool, poolSize),
 		lock:           &sync.RWMutex{},
 	}
 
 	pool.resetUsageTracking()
-	go pool.mux()
 
-	for i := range pool.workerChannels {
-		pool.workerChannels[i] = make(chan func (), 0)
-		go pool.startWorker(pool.workerChannels[i])
+	for i := range pool.workerCloseChannels {
+		pool.workerCloseChannels[i] = make(chan bool, 0)
+		go pool.startWorker(pool.workQueue, pool.workerCloseChannels[i])
 	}
 
 	return
-}
-
-func (pool *WorkerPool) mux() {
-	index := 0
-	for {
-		select {
-		case c := <-pool.indexProvider:
-			go func(index int) {
-				c <- index
-			}(index)
-			index = (index + 1)%len(pool.workerChannels)
-		}
-	}
-}
-
-func (pool *WorkerPool) getNextIndex() int {
-	c := make(chan int, 1)
-	pool.indexProvider <- c
-	return <-c
 }
 
 func (pool *WorkerPool) ScheduleWork(work func ()) {
@@ -60,20 +41,7 @@ func (pool *WorkerPool) ScheduleWork(work func ()) {
 	}
 
 	go func() {
-		for {
-			pool.lock.RLock()
-			index := pool.getNextIndex()
-			if !pool.stopped {
-				select {
-				case pool.workerChannels[index] <- work:
-					pool.lock.RUnlock()
-					return
-				default:
-					pool.lock.RUnlock()
-					continue
-				}
-			}
-		}
+		pool.workQueue <- work
 	}()
 }
 
@@ -84,15 +52,16 @@ func (pool *WorkerPool) StopWorkers() {
 		return
 	}
 	pool.stopped = true
-	for _, workerChannel := range pool.workerChannels {
-		close(workerChannel)
+
+	for _, closeChan := range pool.workerCloseChannels {
+		closeChan <- true
 	}
 }
 
-func (pool *WorkerPool) startWorker(workerChannel chan func ()) {
+func (pool *WorkerPool) startWorker(workChannel chan func (), closeChannel chan bool) {
 	for {
-		f, ok := <-workerChannel
-		if ok {
+		select {
+		case f := <-workChannel:
 			tWork := time.Now()
 			f()
 			dtWork := time.Since(tWork)
@@ -100,7 +69,7 @@ func (pool *WorkerPool) startWorker(workerChannel chan func ()) {
 			pool.lock.Lock()
 			pool.timeSpentWorking += dtWork
 			pool.lock.Unlock()
-		} else {
+		case <-closeChannel:
 			return
 		}
 	}
@@ -116,7 +85,7 @@ func (pool *WorkerPool) MeasureUsage() (usage float64, measurementDuration time.
 	measurementDuration = time.Since(pool.usageSampleStartTime)
 	pool.lock.Unlock()
 
-	usage = timeSpentWorking.Seconds()/(measurementDuration.Seconds()*float64(len(pool.workerChannels)))
+	usage = timeSpentWorking.Seconds()/(measurementDuration.Seconds()*float64(len(pool.workerCloseChannels)))
 
 	pool.resetUsageTracking()
 	return usage, measurementDuration
