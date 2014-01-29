@@ -16,6 +16,10 @@ var _ = Describe("WorkerPool", func() {
 		pool = NewWorkerPool(poolSize)
 	})
 
+	AfterEach(func() {
+		pool.StopWorkers()
+	})
+
 	Describe("scheduling work", func() {
 		Context("when passed one function", func() {
 			It("should run the passed in function", func() {
