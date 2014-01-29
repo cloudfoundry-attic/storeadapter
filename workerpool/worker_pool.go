@@ -8,7 +8,7 @@ import (
 type WorkerPool struct {
 	workerChannels []chan func()
 	indexProvider  chan chan int
-	timeLock       *sync.Mutex
+	lock           *sync.RWMutex
 	stopped        bool
 
 	timeSpentWorking     time.Duration
@@ -19,7 +19,7 @@ func NewWorkerPool(poolSize int) (pool *WorkerPool) {
 	pool = &WorkerPool{
 		workerChannels: make([]chan func(), poolSize),
 		indexProvider:  make(chan chan int, 0),
-		timeLock:       &sync.Mutex{},
+		lock:           &sync.RWMutex{},
 	}
 
 	pool.resetUsageTracking()
@@ -53,6 +53,8 @@ func (pool *WorkerPool) getNextIndex() int {
 }
 
 func (pool *WorkerPool) ScheduleWork(work func()) {
+	pool.lock.RLock()
+	defer pool.lock.RUnlock()
 	if pool.stopped {
 		return
 	}
@@ -64,6 +66,8 @@ func (pool *WorkerPool) ScheduleWork(work func()) {
 }
 
 func (pool *WorkerPool) StopWorkers() {
+	pool.lock.Lock()
+	defer pool.lock.Unlock()
 	pool.stopped = true
 	for _, workerChannel := range pool.workerChannels {
 		close(workerChannel)
@@ -78,9 +82,9 @@ func (pool *WorkerPool) startWorker(workerChannel chan func()) {
 			f()
 			dtWork := time.Since(tWork)
 
-			pool.timeLock.Lock()
+			pool.lock.Lock()
 			pool.timeSpentWorking += dtWork
-			pool.timeLock.Unlock()
+			pool.lock.Unlock()
 		} else {
 			return
 		}
@@ -92,10 +96,10 @@ func (pool *WorkerPool) StartTrackingUsage() {
 }
 
 func (pool *WorkerPool) MeasureUsage() (usage float64, measurementDuration time.Duration) {
-	pool.timeLock.Lock()
+	pool.lock.Lock()
 	timeSpentWorking := pool.timeSpentWorking
 	measurementDuration = time.Since(pool.usageSampleStartTime)
-	pool.timeLock.Unlock()
+	pool.lock.Unlock()
 
 	usage = timeSpentWorking.Seconds() / (measurementDuration.Seconds() * float64(len(pool.workerChannels)))
 
@@ -104,8 +108,8 @@ func (pool *WorkerPool) MeasureUsage() (usage float64, measurementDuration time.
 }
 
 func (pool *WorkerPool) resetUsageTracking() {
-	pool.timeLock.Lock()
+	pool.lock.Lock()
 	pool.usageSampleStartTime = time.Now()
 	pool.timeSpentWorking = 0
-	pool.timeLock.Unlock()
+	pool.lock.Unlock()
 }
