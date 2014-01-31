@@ -2,6 +2,7 @@ package etcdstoreadapter_test
 
 import (
 	"fmt"
+	"github.com/cloudfoundry/storeadapter"
 	. "github.com/cloudfoundry/storeadapter"
 	. "github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
@@ -602,7 +603,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 
 		Context("when told to stop watching", func() {
 			It("no longer notifies for any events", func(done Done) {
-				events, stop, _ := adapter.Watch("/foo")
+				events, stop, errChan := adapter.Watch("/foo")
 
 				err := adapter.Create(StoreNode{
 					Key:   "/foo/a",
@@ -625,8 +626,8 @@ var _ = Describe("ETCD Store Adapter", func() {
 				})
 				Expect(err).ToNot(HaveOccurred())
 
-				_, ok := <-events
-				Expect(ok).To(BeFalse())
+				Ω(events).To(BeClosed())
+				Ω(errChan).To(BeClosed())
 
 				close(done)
 			}, 5.0)
@@ -694,9 +695,29 @@ var _ = Describe("ETCD Store Adapter", func() {
 				Expect(event.Node.Key).To(Equal("/foo/a"))
 
 				Ω(<-errChan).Should(Equal(ErrorTimeout))
+				Ω(events).To(BeClosed())
+				Ω(errChan).To(BeClosed())
 
 				close(done)
 			}, 5)
+		})
+	})
+
+	Describe("Disconnect", func() {
+		Context("With watchers", func() {
+			var watch1Events, watch2Events <-chan storeadapter.WatchEvent
+
+			BeforeEach(func() {
+				watch1Events, _, _ = adapter.Watch("/foo")
+				watch2Events, _, _ = adapter.Watch("/bar")
+			})
+
+			FIt("should close all the watchers channels", func() {
+				adapter.Disconnect()
+
+				Ω(watch1Events).Should(BeClosed())
+				Ω(watch2Events).Should(BeClosed())
+			})
 		})
 	})
 })

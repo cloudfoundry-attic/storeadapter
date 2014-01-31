@@ -1,24 +1,29 @@
 package etcdstoreadapter
 
 import (
+	"fmt"
 	"github.com/cloudfoundry/storeadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	"github.com/coreos/go-etcd/etcd"
-	"github.com/nu7hatch/gouuid"
+	uuid "github.com/nu7hatch/gouuid"
 	"path"
+	"sync"
 	"time"
 )
 
 type ETCDStoreAdapter struct {
-	urls       []string
-	client     *etcd.Client
-	workerPool *workerpool.WorkerPool
+	urls           []string
+	client         *etcd.Client
+	workerPool     *workerpool.WorkerPool
+	disconnectChan chan bool
+	activeWatchers sync.WaitGroup
 }
 
 func NewETCDStoreAdapter(urls []string, workerPool *workerpool.WorkerPool) *ETCDStoreAdapter {
 	return &ETCDStoreAdapter{
-		urls:       urls,
-		workerPool: workerPool,
+		urls:           urls,
+		workerPool:     workerPool,
+		disconnectChan: make(chan bool),
 	}
 }
 
@@ -30,6 +35,9 @@ func (adapter *ETCDStoreAdapter) Connect() error {
 
 func (adapter *ETCDStoreAdapter) Disconnect() error {
 	adapter.workerPool.StopWorkers()
+
+	close(adapter.disconnectChan)
+	adapter.activeWatchers.Wait()
 
 	return nil
 }
@@ -151,6 +159,7 @@ func (adapter *ETCDStoreAdapter) Watch(key string) (<-chan storeadapter.WatchEve
 	errors := make(chan error, 1)
 	stop := make(chan bool, 1)
 
+	adapter.activeWatchers.Add(1)
 	go adapter.dispatchWatchEvents(key, events, stop, errors)
 
 	time.Sleep(100 * time.Millisecond) //give the watcher a chance to connect
@@ -195,9 +204,18 @@ func (adapter *ETCDStoreAdapter) Delete(keys ...string) error {
 
 func (adapter *ETCDStoreAdapter) dispatchWatchEvents(key string, events chan<- storeadapter.WatchEvent, stop <-chan bool, errors chan<- error) {
 	var index uint64
+	defer func() {
+		fmt.Println("Deferring", key)
+		close(events)
+		close(errors)
+		fmt.Println("Watch.Done")
+		adapter.activeWatchers.Done()
+	}()
 
 	for {
+		fmt.Println("after adapter.client.", err)
 		response, err := adapter.client.Watch(key, index, true, nil, nil)
+		fmt.Println("after adapter.client.Watch", err)
 		if err != nil {
 			if adapter.isEventIndexClearedError(err) {
 				index++
@@ -210,8 +228,9 @@ func (adapter *ETCDStoreAdapter) dispatchWatchEvents(key string, events chan<- s
 
 		select {
 		case events <- adapter.makeWatchEvent(response):
+		case <-adapter.disconnectChan:
+			return
 		case <-stop:
-			close(events)
 			return
 		}
 
