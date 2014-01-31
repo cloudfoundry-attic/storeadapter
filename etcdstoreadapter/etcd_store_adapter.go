@@ -242,6 +242,7 @@ func (adapter *ETCDStoreAdapter) makeStoreNode(etcdNode etcd.Node) storeadapter.
 			Dir:        true,
 			Value:      []byte{},
 			ChildNodes: []storeadapter.StoreNode{},
+			TTL:        uint64(etcdNode.TTL),
 		}
 
 		for _, child := range etcdNode.Nodes {
@@ -262,26 +263,20 @@ func (adapter *ETCDStoreAdapter) makeWatchEvent(event *etcd.Response) storeadapt
 	var eventType storeadapter.EventType
 	var node *etcd.Node
 
-	if event.Action == "delete" {
+	switch event.Action {
+	case "delete":
 		eventType = storeadapter.DeleteEvent
 		node = event.PrevNode
-	}
-
-	if event.Action == "create" {
+	case "create":
 		eventType = storeadapter.CreateEvent
 		node = event.Node
-	}
-
-	if event.Action == "set" {
+	case "set", "update":
 		eventType = storeadapter.UpdateEvent
 		node = event.Node
-	}
-
-	if event.Action == "expire" {
+	case "expire":
 		eventType = storeadapter.ExpireEvent
 		node = event.PrevNode
 	}
-
 	return storeadapter.WatchEvent{
 		Type: eventType,
 		Node: adapter.makeStoreNode(*node),

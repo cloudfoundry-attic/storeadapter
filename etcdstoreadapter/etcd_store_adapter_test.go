@@ -517,7 +517,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 			}, 5.0)
 		})
 
-		Context("when a node under the key is updated", func() {
+		Context("when a node under the key is set", func() {
 			BeforeEach(func() {
 				err := adapter.SetMulti([]StoreNode{
 					{
@@ -543,6 +543,32 @@ var _ = Describe("ETCD Store Adapter", func() {
 				Expect(event.Type).To(Equal(UpdateEvent))
 				Expect(event.Node.Key).To(Equal("/foo/a"))
 				Expect(string(event.Node.Value)).To(Equal("new value"))
+
+				close(done)
+			}, 5.0)
+		})
+
+		Context("when a node under the key is updated", func() {
+			BeforeEach(func() {
+				err := adapter.SetMulti([]StoreNode{
+					{
+						Key:   "/foo/a",
+						Value: []byte("some value"),
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("sends an event with UpdateEvent type and the node's value", func(done Done) {
+				events, _, _ := adapter.Watch("/foo")
+
+				err := adapter.UpdateDirTTL("/foo", 10)
+				Expect(err).ToNot(HaveOccurred())
+
+				event := <-events
+				Expect(event.Type).To(Equal(UpdateEvent))
+				Expect(event.Node.Key).To(Equal("/foo"))
+				Expect(event.Node.TTL).To(BeNumerically("==", 10))
 
 				close(done)
 			}, 5.0)
@@ -708,6 +734,10 @@ var _ = Describe("ETCD Store Adapter", func() {
 
 				err = adapter.UpdateDirTTL("/menu", 1)
 				Expect(err).NotTo(HaveOccurred())
+
+				node, err := adapter.ListRecursively("/menu")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(node.TTL).NotTo(BeZero())
 
 				_, err = adapter.Get("/menu/breakfast")
 				Expect(err).NotTo(HaveOccurred())
