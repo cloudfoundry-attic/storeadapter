@@ -256,6 +256,10 @@ func (adapter *FakeStoreAdapter) Delete(keys ...string) error {
 	return nil
 }
 
+func (adapter *FakeStoreAdapter) UpdateDirTTL(key string, ttl uint64) error {
+	panic("not implemented")
+}
+
 func (adapter *FakeStoreAdapter) Watch(key string) (events <-chan storeadapter.WatchEvent, stop chan<- bool, errors <-chan error) {
 	adapter.sendEvents = true
 	adapter.WatchErrChannel = make(chan error, 1)

@@ -229,6 +229,11 @@ func (adapter *ZookeeperStoreAdapter) Create(node storeadapter.StoreNode) error 
 	return nil
 }
 
+func (adapter *ZookeeperStoreAdapter) UpdateDirTTL(key string, ttl uint64) error {
+	panic("not implemented")
+	return nil
+}
+
 func (adapter *ZookeeperStoreAdapter) isMissingKeyError(err error) bool {
 	return err == zk.ErrNoNode
 }

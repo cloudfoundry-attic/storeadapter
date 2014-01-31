@@ -23,6 +23,9 @@ type StoreAdapter interface {
 	// deleted or don't actually exist, an error is returned.
 	Delete(keys ...string) error
 
+	// Set the ttl on a directory
+	UpdateDirTTL(key string, ttl uint64) error
+
 	// Watch a given key recursively for changes. Events will come in on one channel, and watching will stop when a value is sent over the stop channel.
 	//
 	// Events may be missed, but the watcher will do its best to continue.

@@ -699,4 +699,41 @@ var _ = Describe("ETCD Store Adapter", func() {
 			}, 5)
 		})
 	})
+
+	Describe("UpdateDirTTL", func() {
+		Context("When the directory exists", func() {
+			It("should set the TTL", func() {
+				err := adapter.Create(breakfastNode)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = adapter.UpdateDirTTL("/menu", 1)
+				Expect(err).NotTo(HaveOccurred())
+
+				_, err = adapter.Get("/menu/breakfast")
+				Expect(err).NotTo(HaveOccurred())
+
+				time.Sleep(2 * time.Second)
+
+				_, err = adapter.Get("/menu/breakfast")
+				Expect(err).To(Equal(ErrorKeyNotFound))
+			})
+		})
+
+		Context("When the directory does not exist", func() {
+			It("should return a ErrorKeyNotFound", func() {
+				err := adapter.UpdateDirTTL("/non-existent-key", 1)
+				Expect(err).To(Equal(ErrorKeyNotFound))
+			})
+		})
+
+		Context("When the key represents a leaf, not a directory", func() {
+			It("should return a ErrorNodeIsNotDirectory error", func() {
+				err := adapter.Create(breakfastNode)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = adapter.UpdateDirTTL("/menu/breakfast", 1)
+				Expect(err).To(Equal(ErrorNodeIsNotDirectory))
+			})
+		})
+	})
 })

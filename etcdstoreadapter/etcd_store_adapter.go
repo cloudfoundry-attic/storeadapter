@@ -193,6 +193,22 @@ func (adapter *ETCDStoreAdapter) Delete(keys ...string) error {
 	return adapter.convertError(err)
 }
 
+func (adapter *ETCDStoreAdapter) UpdateDirTTL(key string, ttl uint64) error {
+	response, err := adapter.Get(key)
+	if err == nil && response.Dir == false {
+		return storeadapter.ErrorNodeIsNotDirectory
+	}
+
+	results := make(chan error, 1)
+
+	adapter.workerPool.ScheduleWork(func() {
+		_, err = adapter.client.UpdateDir(key, ttl)
+		results <- err
+	})
+
+	return adapter.convertError(<-results)
+}
+
 func (adapter *ETCDStoreAdapter) dispatchWatchEvents(key string, events chan<- storeadapter.WatchEvent, stop <-chan bool, errors chan<- error) {
 	var index uint64
 
