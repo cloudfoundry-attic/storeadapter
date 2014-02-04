@@ -7,11 +7,13 @@ import (
 
 type WorkerPool struct {
 	workQueue chan func ()
-	workerCloseChannels []chan bool
+	workerCloseChannel chan bool
 
-	lock           *sync.RWMutex
-	stopped        bool
+	workerCount float64
+	workerMutex	sync.WaitGroup
 
+
+	metricsLock	sync.Mutex
 	timeSpentWorking     time.Duration
 	usageSampleStartTime time.Time
 }
@@ -19,56 +21,49 @@ type WorkerPool struct {
 func NewWorkerPool(poolSize int) (pool *WorkerPool) {
 	pool = &WorkerPool{
 		workQueue: make(chan func (), 0),
-		workerCloseChannels: make([]chan bool, poolSize),
-		lock:           &sync.RWMutex{},
+		workerCloseChannel: make(chan bool),
+		usageSampleStartTime: time.Now(),
+		workerCount: float64(poolSize),
 	}
 
-	pool.resetUsageTracking()
-
-	for i := range pool.workerCloseChannels {
-		pool.workerCloseChannels[i] = make(chan bool, 0)
-		go pool.startWorker(pool.workQueue, pool.workerCloseChannels[i])
+	for i := 0; i<poolSize; i++ {
+		pool.workerMutex.Add(1)
+		go pool.startWorker(pool.workQueue, pool.workerCloseChannel)
 	}
 
 	return
 }
 
 func (pool *WorkerPool) ScheduleWork(work func ()) {
-	pool.lock.RLock()
-	defer pool.lock.RUnlock()
-	if pool.stopped {
+	select {
+	case <-pool.workerCloseChannel:
 		return
+	default:
+		go func() {
+			pool.workQueue <- work
+		}()
 	}
-
-	go func() {
-		pool.workQueue <- work
-	}()
 }
 
 func (pool *WorkerPool) StopWorkers() {
-	pool.lock.Lock()
-	defer pool.lock.Unlock()
-	if pool.stopped {
+	select {
+	case <-pool.workerCloseChannel:
 		return
-	}
-	pool.stopped = true
-
-	for _, closeChan := range pool.workerCloseChannels {
-		closeChan <- true
+	default:
+		close(pool.workerCloseChannel)
+		pool.workerMutex.Wait()
 	}
 }
 
 func (pool *WorkerPool) startWorker(workChannel chan func (), closeChannel chan bool) {
+	defer pool.workerMutex.Done()
 	for {
 		select {
 		case f := <-workChannel:
 			tWork := time.Now()
 			f()
 			dtWork := time.Since(tWork)
-
-			pool.lock.Lock()
-			pool.timeSpentWorking += dtWork
-			pool.lock.Unlock()
+			pool.addTimeSpentWorking(dtWork)
 		case <-closeChannel:
 			return
 		}
@@ -76,24 +71,32 @@ func (pool *WorkerPool) startWorker(workChannel chan func (), closeChannel chan 
 }
 
 func (pool *WorkerPool) StartTrackingUsage() {
-	pool.resetUsageTracking()
+	pool.resetUsageMetrics()
 }
 
-func (pool *WorkerPool) MeasureUsage() (usage float64, measurementDuration time.Duration) {
-	pool.lock.Lock()
-	timeSpentWorking := pool.timeSpentWorking
-	measurementDuration = time.Since(pool.usageSampleStartTime)
-	pool.lock.Unlock()
+func (pool *WorkerPool) MeasureUsage() (usage float64, timeSinceStartTime time.Duration) {
+	timeSpentWorking, timeSinceStartTime := pool.resetUsageMetrics()
 
-	usage = timeSpentWorking.Seconds()/(measurementDuration.Seconds()*float64(len(pool.workerCloseChannels)))
+	usage = timeSpentWorking/(timeSinceStartTime.Seconds()*pool.workerCount)
 
-	pool.resetUsageTracking()
-	return usage, measurementDuration
+	return
 }
 
-func (pool *WorkerPool) resetUsageTracking() {
-	pool.lock.Lock()
+func (pool *WorkerPool) addTimeSpentWorking(moreTime time.Duration) {
+	pool.metricsLock.Lock()
+	defer pool.metricsLock.Unlock()
+
+	pool.timeSpentWorking += moreTime
+}
+
+func (pool *WorkerPool) resetUsageMetrics() (timeSpentWorking float64, timeSinceStartTime time.Duration) {
+	pool.metricsLock.Lock()
+	defer pool.metricsLock.Unlock()
+
+	timeSinceStartTime = time.Since(pool.usageSampleStartTime)
+	timeSpentWorking = pool.timeSpentWorking.Seconds()
+
 	pool.usageSampleStartTime = time.Now()
 	pool.timeSpentWorking = 0
-	pool.lock.Unlock()
+	return
 }
