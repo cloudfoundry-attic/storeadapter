@@ -626,6 +626,31 @@ var _ = Describe("ETCD Store Adapter", func() {
 			}, 5.0)
 		})
 
+		Context("when the node is gotten", func() {
+			BeforeEach(func() {
+				err := adapter.SetMulti([]StoreNode{
+					{
+						Key:   "/foo/a",
+						Value: []byte("some value"),
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("sends an event with GetEvent type and the node's value", func(done Done) {
+				events, _, _ := adapter.Watch("/foo")
+				_, err := adapter.ListRecursively("/foo")
+				Expect(err).ToNot(HaveOccurred())
+
+				event := <-events
+				Expect(event.Type).To(Equal(GetEvent))
+				Expect(event.Node.Key).To(Equal("/foo/a"))
+				Expect(string(event.Node.Value)).To(Equal("some value"))
+
+				close(done)
+			}, 5.0)
+		})
+
 		Context("when told to stop watching", func() {
 			It("no longer notifies for any events", func(done Done) {
 				events, stop, _ := adapter.Watch("/foo")

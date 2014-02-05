@@ -1,10 +1,12 @@
 package etcdstoreadapter
 
 import (
+	"fmt"
 	"github.com/cloudfoundry/storeadapter"
 	"github.com/cloudfoundry/storeadapter/workerpool"
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/nu7hatch/gouuid"
+	"os"
 	"path"
 	"time"
 )
@@ -263,7 +265,11 @@ func (adapter *ETCDStoreAdapter) makeWatchEvent(event *etcd.Response) storeadapt
 	var eventType storeadapter.EventType
 	var node *etcd.Node
 
+	fmt.Fprintf(os.Stderr, "Received an event of type '%s'", event.Action)
 	switch event.Action {
+	case "get":
+		eventType = storeadapter.GetEvent
+		node = event.Node
 	case "delete":
 		eventType = storeadapter.DeleteEvent
 		node = event.PrevNode
