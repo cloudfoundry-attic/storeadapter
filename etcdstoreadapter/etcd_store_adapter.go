@@ -265,13 +265,14 @@ func (adapter *ETCDStoreAdapter) makeWatchEvent(event *etcd.Response) storeadapt
 	var eventType storeadapter.EventType
 	var node *etcd.Node
 
-	fmt.Fprintf(os.Stderr, "Received an event of type '%s'", event.Action)
+	fmt.Fprintf(os.Stderr, "Received an event of type '%s'\n", event.Action)
 	switch event.Action {
 	case "get":
 		eventType = storeadapter.GetEvent
 		node = event.Node
 	case "delete":
 		eventType = storeadapter.DeleteEvent
+		fmt.Fprintf(os.Stderr, "Prevnode is: %s\n", event.PrevNode)
 		node = event.PrevNode
 	case "create":
 		eventType = storeadapter.CreateEvent
