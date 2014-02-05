@@ -6,27 +6,26 @@ import (
 )
 
 type WorkerPool struct {
-	workQueue chan func ()
+	workQueue          chan func()
 	workerCloseChannel chan bool
 
 	workerCount float64
-	workerMutex	sync.WaitGroup
+	workerMutex sync.WaitGroup
 
-
-	metricsLock	sync.Mutex
+	metricsLock          sync.Mutex
 	timeSpentWorking     time.Duration
 	usageSampleStartTime time.Time
 }
 
 func NewWorkerPool(poolSize int) (pool *WorkerPool) {
 	pool = &WorkerPool{
-		workQueue: make(chan func (), 0),
-		workerCloseChannel: make(chan bool),
+		workQueue:            make(chan func(), 0),
+		workerCloseChannel:   make(chan bool),
 		usageSampleStartTime: time.Now(),
-		workerCount: float64(poolSize),
+		workerCount:          float64(poolSize),
 	}
 
-	for i := 0; i<poolSize; i++ {
+	for i := 0; i < poolSize; i++ {
 		pool.workerMutex.Add(1)
 		go pool.startWorker(pool.workQueue, pool.workerCloseChannel)
 	}
@@ -34,7 +33,7 @@ func NewWorkerPool(poolSize int) (pool *WorkerPool) {
 	return
 }
 
-func (pool *WorkerPool) ScheduleWork(work func ()) {
+func (pool *WorkerPool) ScheduleWork(work func()) {
 	select {
 	case <-pool.workerCloseChannel:
 		return
@@ -55,7 +54,7 @@ func (pool *WorkerPool) StopWorkers() {
 	}
 }
 
-func (pool *WorkerPool) startWorker(workChannel chan func (), closeChannel chan bool) {
+func (pool *WorkerPool) startWorker(workChannel chan func(), closeChannel chan bool) {
 	defer pool.workerMutex.Done()
 	for {
 		select {
@@ -77,7 +76,7 @@ func (pool *WorkerPool) StartTrackingUsage() {
 func (pool *WorkerPool) MeasureUsage() (usage float64, timeSinceStartTime time.Duration) {
 	timeSpentWorking, timeSinceStartTime := pool.resetUsageMetrics()
 
-	usage = timeSpentWorking/(timeSinceStartTime.Seconds()*pool.workerCount)
+	usage = timeSpentWorking / (timeSinceStartTime.Seconds() * pool.workerCount)
 
 	return
 }
