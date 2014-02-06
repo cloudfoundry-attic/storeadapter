@@ -169,6 +169,17 @@ func (adapter *ETCDStoreAdapter) Create(node storeadapter.StoreNode) error {
 	return adapter.convertError(<-results)
 }
 
+func (adapter *ETCDStoreAdapter) Update(node storeadapter.StoreNode) error {
+	results := make(chan error, 1)
+
+	adapter.workerPool.ScheduleWork(func() {
+		_, err := adapter.client.Update(node.Key, string(node.Value), node.TTL)
+		results <- err
+	})
+
+	return adapter.convertError(<-results)
+}
+
 func (adapter *ETCDStoreAdapter) Delete(keys ...string) error {
 	results := make(chan error, len(keys))
 

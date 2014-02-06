@@ -220,7 +220,7 @@ func (adapter *ZookeeperStoreAdapter) Delete(keys ...string) error {
 }
 
 func (adapter *ZookeeperStoreAdapter) Watch(key string) (<-chan storeadapter.WatchEvent, chan<- bool, <-chan error) {
-	panic("not implemented")
+	panic("not implemented, probably never will be")
 	return nil, nil, nil
 }
 
@@ -230,6 +230,11 @@ func (adapter *ZookeeperStoreAdapter) Create(node storeadapter.StoreNode) error 
 }
 
 func (adapter *ZookeeperStoreAdapter) UpdateDirTTL(key string, ttl uint64) error {
+	panic("not implemented")
+	return nil
+}
+
+func (adapter *ZookeeperStoreAdapter) Update(node storeadapter.StoreNode) error {
 	panic("not implemented")
 	return nil
 }

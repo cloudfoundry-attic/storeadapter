@@ -467,6 +467,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 
 	Describe("Creating", func() {
 		var node StoreNode
+
 		BeforeEach(func() {
 			node = StoreNode{Key: "/foo", Value: []byte("some value")}
 			err := adapter.Create(node)
@@ -493,6 +494,45 @@ var _ = Describe("ETCD Store Adapter", func() {
 
 				err = adapter.Create(StoreNode{Key: "/dir", Value: []byte("some value")})
 				Ω(err).Should(Equal(ErrorKeyExists))
+			})
+		})
+	})
+
+	Describe("Updating", func() {
+		var node StoreNode
+
+		BeforeEach(func() {
+			node = StoreNode{Key: "/foo", Value: []byte("some value")}
+		})
+
+		It("updates the existing node at the given key", func() {
+			err := adapter.Create(node)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			node.Value = []byte("some new value")
+
+			err = adapter.Update(node)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			retrievedNode, err := adapter.Get("/foo")
+			Ω(err).ShouldNot(HaveOccurred())
+			Ω(retrievedNode).Should(Equal(node))
+		})
+
+		Context("when a node does not exist at the key", func() {
+			It("returns an error", func() {
+				err := adapter.Update(node)
+				Ω(err).Should(Equal(ErrorKeyNotFound))
+			})
+		})
+
+		Context("when a directory exists at the given key", func() {
+			It("returns an error", func() {
+				err := adapter.Create(StoreNode{Key: "/dir/foo", Value: []byte("some value")})
+				Ω(err).ShouldNot(HaveOccurred())
+
+				err = adapter.Update(StoreNode{Key: "/dir", Value: []byte("some value")})
+				Ω(err).Should(Equal(ErrorNodeIsDirectory))
 			})
 		})
 	})

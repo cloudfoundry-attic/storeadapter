@@ -8,6 +8,9 @@ type StoreAdapter interface {
 	// Create a node and fail if it already exists.
 	Create(StoreNode) error
 
+	// Update a node and fail if it does not already exist.
+	Update(StoreNode) error
+
 	// Set multiple nodes at once. If any of them fail,
 	// it will return the first error.
 	SetMulti(nodes []StoreNode) error
