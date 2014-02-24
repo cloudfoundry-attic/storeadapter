@@ -446,19 +446,19 @@ var _ = Describe("ETCD Store Adapter", func() {
 				_, releaseLock, err := adapter.GetAndMaintainLock(uniqueKeyForThisTest, 1)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				didRun := false
+				didRun := make(chan bool)
 				go func() {
 					_, _, err := adapter.GetAndMaintainLock(uniqueKeyForThisTest, 1)
 					Ω(err).ShouldNot(HaveOccurred())
-					didRun = true
+					close(didRun)
 				}()
 
 				runtime.Gosched()
 
-				Ω(didRun).Should(BeFalse())
+				Ω(didRun).ShouldNot(BeClosed())
 				releaseLock <- true
 
-				Eventually(func() bool { return didRun }, 3).Should(BeTrue())
+				Eventually(didRun, 3).Should(BeClosed())
 
 				close(done)
 			}, 10.0)
