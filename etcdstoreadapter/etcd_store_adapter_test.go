@@ -31,7 +31,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 			Value: []byte("burgers"),
 		}
 
-		adapter = NewETCDStoreAdapter(etcdRunner.NodeURLS(), workerpool.NewWorkerPool(100))
+		adapter = NewETCDStoreAdapter(etcdRunner.NodeURLS(), workerpool.NewWorkerPool(10))
 		err := adapter.Connect()
 		Ω(err).ShouldNot(HaveOccurred())
 	})
@@ -668,7 +668,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 
 		Context("when told to stop watching", func() {
 			It("no longer notifies for any events", func(done Done) {
-				events, stop, _ := adapter.Watch("/foo")
+				events, stop, errors := adapter.Watch("/foo")
 
 				err := adapter.Create(StoreNode{
 					Key:   "/foo/a",
@@ -691,11 +691,22 @@ var _ = Describe("ETCD Store Adapter", func() {
 				})
 				Expect(err).ToNot(HaveOccurred())
 
-				_, ok := <-events
-				Expect(ok).To(BeFalse())
+				Expect(events).To(BeClosed())
+				Expect(errors).To(BeClosed())
 
 				close(done)
 			}, 5.0)
+		})
+
+		Context("when told to disconnect", func() {
+			It("no longer notifies for any events", func() {
+				events, _, errors := adapter.Watch("/foo")
+
+				adapter.Disconnect()
+
+				Eventually(events).Should(BeClosed())
+				Eventually(errors).Should(BeClosed())
+			})
 		})
 
 		Context("when 1000 (current etcd constant) events occur between the start index and now", func() {
