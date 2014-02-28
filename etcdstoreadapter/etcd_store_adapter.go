@@ -338,7 +338,7 @@ func (adapter *ETCDStoreAdapter) MaintainNode(storeNode storeadapter.StoreNode) 
 	lostNodeChannel := make(chan bool)
 
 	for {
-		_, err := adapter.client.Create(storeNode.Key, string(storeNode.Value), storeNode.TTL)
+		err := adapter.Create(storeNode)
 		convertedError := adapter.convertError(err)
 		if convertedError == storeadapter.ErrorTimeout {
 			return nil, nil, storeadapter.ErrorTimeout
