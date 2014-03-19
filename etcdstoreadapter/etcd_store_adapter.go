@@ -435,7 +435,10 @@ func (adapter *ETCDStoreAdapter) maintainNode(storeNode storeadapter.StoreNode, 
 		case released := <-releaseNode:
 			adapter.client.CompareAndDelete(storeNode.Key, string(storeNode.Value), 0)
 			timer.Stop()
-			close(released)
+			close(nodeStatus)
+			if released != nil {
+				close(released)
+			}
 			return
 		}
 	}

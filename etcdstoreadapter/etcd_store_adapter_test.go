@@ -383,9 +383,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 			go func() {
 				for {
 					select {
-					case status := <-nodeStatus:
-						Ω(status).Should(BeTrue())
-						locked = true
+					case status, ok := <-nodeStatus:
+						if ok {
+							Ω(status).Should(BeTrue())
+						}
+						locked = status
 					case waiting := <-done:
 						releaseMaintainedNode(releaseLock, waiting)
 						return
@@ -558,6 +560,27 @@ var _ = Describe("ETCD Store Adapter", func() {
 				_, err = adapter.Get(uniqueStoreNodeForThisTest.Key)
 				Ω(err).Should(HaveOccurred())
 			})
+
+			It("the status channel is closed", func() {
+				nodeStatus, releaseLock, _ := adapter.MaintainNode(uniqueStoreNodeForThisTest)
+				open := true
+				locked := false
+				go func() {
+					for {
+						select {
+						case locked, open = <-nodeStatus:
+							if !open {
+								return
+							}
+						}
+					}
+				}()
+				Eventually(func() bool { return locked }).Should(BeTrue())
+
+				releaseLock <- nil
+				Eventually(func() bool { return open }).Should(BeFalse())
+			})
+
 		})
 	})
 
