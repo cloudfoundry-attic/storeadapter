@@ -31,6 +31,11 @@ func (reporter *StatusReporter) collectUpdates(status <-chan bool) {
 	for {
 		select {
 		case locked, reporting = <-status:
+			if !reporting {
+				close(reporter.reported)
+				close(reporter.locked)
+				return
+			}
 		case reporter.reported <- reporting:
 		case reporter.locked <- locked:
 		}
