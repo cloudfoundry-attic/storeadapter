@@ -437,7 +437,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 				start := time.Now()
 				Eventually(nodeStatus, 2.0).Should(Receive(&status))
 				Ω(status).Should(BeTrue())
-				Ω(time.Now().Sub(start)).Should(BeNumerically("==", 1*time.Second, 50*time.Millisecond))
+				Ω(time.Now().Sub(start)).Should(BeNumerically("==", 1*time.Second, 400*time.Millisecond))
 
 				releaseMaintainedNode(releaseLock)
 			})
@@ -874,17 +874,8 @@ var _ = Describe("ETCD Store Adapter", func() {
 				Expect(string(event.Node.Value)).To(Equal("new value"))
 
 				stop <- true
-
-				err = adapter.SetMulti([]StoreNode{
-					{
-						Key:   "/foo/b",
-						Value: []byte("new value"),
-					},
-				})
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(events).To(BeClosed())
-				Expect(errors).To(BeClosed())
+				Eventually(events).Should(BeClosed())
+				Eventually(errors).Should(BeClosed())
 
 				close(done)
 			}, 5.0)
