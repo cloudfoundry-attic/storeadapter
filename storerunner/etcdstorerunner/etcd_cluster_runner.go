@@ -150,8 +150,7 @@ func (etcd *ETCDClusterRunner) stop(nuke bool) {
 
 	if etcd.running {
 		for i := 0; i < etcd.numNodes; i++ {
-			etcd.etcdSessions[i].Interrupt()
-			etcd.etcdSessions[i].Wait(5 * time.Second)
+			etcd.etcdSessions[i].Interrupt().Wait(5 * time.Second)
 			if nuke {
 				etcd.nukeArtifacts(i)
 			}
