@@ -44,6 +44,7 @@ type FakeStoreAdapter struct {
 	rootNode *containerNode
 
 	MaintainedNodeName string
+	MaintainedNodeValue []byte
 	MaintainNodeError  error
 	MaintainNodeStatus chan bool
 	ReleaseNodeChannel chan chan bool
@@ -300,6 +301,7 @@ func (adapter *FakeStoreAdapter) keyComponents(key string) (components []string)
 
 func (adapter *FakeStoreAdapter) MaintainNode(storeNode storeadapter.StoreNode) (status <-chan bool, releaseNode chan chan bool, err error) {
 	adapter.MaintainedNodeName = storeNode.Key
+	adapter.MaintainedNodeValue = storeNode.Value
 	adapter.ReleaseNodeChannel = make(chan chan bool, 1)
 
 	return adapter.MaintainNodeStatus, adapter.ReleaseNodeChannel, adapter.MaintainNodeError
