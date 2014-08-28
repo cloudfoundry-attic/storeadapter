@@ -402,7 +402,7 @@ func (adapter *ETCDStoreAdapter) makeWatchEvent(event *etcd.Response) (storeadap
 
 	node := event.Node
 	switch event.Action {
-	case "delete":
+	case "delete", "compareAndDelete":
 		eventType = storeadapter.DeleteEvent
 		node = nil
 	case "create":
