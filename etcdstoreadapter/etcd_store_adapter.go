@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudfoundry/gunk/workpool"
 	"github.com/cloudfoundry/storeadapter"
-	"github.com/cloudfoundry/storeadapter/workerpool"
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/nu7hatch/gouuid"
 )
@@ -14,15 +14,15 @@ import (
 type ETCDStoreAdapter struct {
 	urls              []string
 	client            *etcd.Client
-	workerPool        *workerpool.WorkerPool
+	workPool          *workpool.WorkPool
 	inflightWatches   map[chan bool]bool
 	inflightWatchLock *sync.Mutex
 }
 
-func NewETCDStoreAdapter(urls []string, workerPool *workerpool.WorkerPool) *ETCDStoreAdapter {
+func NewETCDStoreAdapter(urls []string, workPool *workpool.WorkPool) *ETCDStoreAdapter {
 	return &ETCDStoreAdapter{
 		urls:              urls,
-		workerPool:        workerPool,
+		workPool:          workPool,
 		inflightWatches:   map[chan bool]bool{},
 		inflightWatchLock: &sync.Mutex{},
 	}
@@ -35,7 +35,7 @@ func (adapter *ETCDStoreAdapter) Connect() error {
 }
 
 func (adapter *ETCDStoreAdapter) Disconnect() error {
-	adapter.workerPool.StopWorkers()
+	adapter.workPool.Stop()
 	adapter.cancelInflightWatches()
 
 	return nil
@@ -79,7 +79,7 @@ func (adapter *ETCDStoreAdapter) SetMulti(nodes []storeadapter.StoreNode) error 
 
 	for _, node := range nodes {
 		node := node
-		adapter.workerPool.ScheduleWork(func() {
+		adapter.workPool.Submit(func() {
 			_, err := adapter.client.Set(node.Key, string(node.Value), node.TTL)
 			results <- err
 		})
@@ -104,7 +104,7 @@ func (adapter *ETCDStoreAdapter) Get(key string) (storeadapter.StoreNode, error)
 	var err error
 
 	//we route through the worker pool to enable usage tracking
-	adapter.workerPool.ScheduleWork(func() {
+	adapter.workPool.Submit(func() {
 		response, err = adapter.client.Get(key, false, false)
 		done <- true
 	})
@@ -134,7 +134,7 @@ func (adapter *ETCDStoreAdapter) ListRecursively(key string) (storeadapter.Store
 	var err error
 
 	//we route through the worker pool to enable usage tracking
-	adapter.workerPool.ScheduleWork(func() {
+	adapter.workPool.Submit(func() {
 		response, err = adapter.client.Get(key, false, true)
 		done <- true
 	})
@@ -159,7 +159,7 @@ func (adapter *ETCDStoreAdapter) ListRecursively(key string) (storeadapter.Store
 func (adapter *ETCDStoreAdapter) Create(node storeadapter.StoreNode) error {
 	results := make(chan error, 1)
 
-	adapter.workerPool.ScheduleWork(func() {
+	adapter.workPool.Submit(func() {
 		_, err := adapter.client.Create(node.Key, string(node.Value), node.TTL)
 		results <- err
 	})
@@ -170,7 +170,7 @@ func (adapter *ETCDStoreAdapter) Create(node storeadapter.StoreNode) error {
 func (adapter *ETCDStoreAdapter) Update(node storeadapter.StoreNode) error {
 	results := make(chan error, 1)
 
-	adapter.workerPool.ScheduleWork(func() {
+	adapter.workPool.Submit(func() {
 		_, err := adapter.client.Update(node.Key, string(node.Value), node.TTL)
 		results <- err
 	})
@@ -181,7 +181,7 @@ func (adapter *ETCDStoreAdapter) Update(node storeadapter.StoreNode) error {
 func (adapter *ETCDStoreAdapter) CompareAndSwap(oldNode storeadapter.StoreNode, newNode storeadapter.StoreNode) error {
 	results := make(chan error, 1)
 
-	adapter.workerPool.ScheduleWork(func() {
+	adapter.workPool.Submit(func() {
 		_, err := adapter.client.CompareAndSwap(
 			newNode.Key,
 			string(newNode.Value),
@@ -199,7 +199,7 @@ func (adapter *ETCDStoreAdapter) CompareAndSwap(oldNode storeadapter.StoreNode, 
 func (adapter *ETCDStoreAdapter) CompareAndSwapByIndex(oldNodeIndex uint64, newNode storeadapter.StoreNode) error {
 	results := make(chan error, 1)
 
-	adapter.workerPool.ScheduleWork(func() {
+	adapter.workPool.Submit(func() {
 		_, err := adapter.client.CompareAndSwap(
 			newNode.Key,
 			string(newNode.Value),
@@ -219,7 +219,7 @@ func (adapter *ETCDStoreAdapter) Delete(keys ...string) error {
 
 	for _, key := range keys {
 		key := key
-		adapter.workerPool.ScheduleWork(func() {
+		adapter.workPool.Submit(func() {
 			_, err := adapter.client.Delete(key, true)
 			results <- err
 		})
@@ -243,7 +243,7 @@ func (adapter *ETCDStoreAdapter) DeleteLeaves(keys ...string) error {
 
 	for _, key := range keys {
 		key := key
-		adapter.workerPool.ScheduleWork(func() {
+		adapter.workPool.Submit(func() {
 			_, err := adapter.client.DeleteDir(key)
 			results <- err
 		})
@@ -265,7 +265,7 @@ func (adapter *ETCDStoreAdapter) DeleteLeaves(keys ...string) error {
 func (adapter *ETCDStoreAdapter) CompareAndDelete(node storeadapter.StoreNode) error {
 	results := make(chan error, 1)
 
-	adapter.workerPool.ScheduleWork(func() {
+	adapter.workPool.Submit(func() {
 		_, err := adapter.client.CompareAndDelete(
 			node.Key,
 			string(node.Value),
@@ -286,7 +286,7 @@ func (adapter *ETCDStoreAdapter) UpdateDirTTL(key string, ttl uint64) error {
 
 	results := make(chan error, 1)
 
-	adapter.workerPool.ScheduleWork(func() {
+	adapter.workPool.Submit(func() {
 		_, err = adapter.client.UpdateDir(key, ttl)
 		results <- err
 	})

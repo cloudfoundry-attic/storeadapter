@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cloudfoundry/gunk/workpool"
 	. "github.com/cloudfoundry/storeadapter"
 	. "github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	. "github.com/cloudfoundry/storeadapter/storenodematchers"
 	"github.com/cloudfoundry/storeadapter/test_helpers"
-	"github.com/cloudfoundry/storeadapter/workerpool"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -33,7 +33,8 @@ var _ = Describe("ETCD Store Adapter", func() {
 			Value: []byte("burgers"),
 		}
 
-		adapter = NewETCDStoreAdapter(etcdRunner.NodeURLS(), workerpool.NewWorkerPool(10))
+		adapter = NewETCDStoreAdapter(etcdRunner.NodeURLS(),
+			workpool.NewWorkPool(10))
 		err := adapter.Connect()
 		Ω(err).ShouldNot(HaveOccurred())
 	})

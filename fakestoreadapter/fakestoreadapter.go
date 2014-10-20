@@ -43,15 +43,16 @@ type FakeStoreAdapter struct {
 
 	rootNode *containerNode
 
-	MaintainedNodeName  string
-	MaintainedNodeValue []byte
-	MaintainNodeError   error
-	MaintainNodeStatus  chan bool
-	ReleaseNodeChannel  chan chan bool
+	maintainedNodeName   string
+	MaintainedNodeValue  []byte
+	MaintainNodeError    error
+	MaintainNodeStatus   chan bool
+	releaseNodeChannel   chan chan bool
+	OnReleaseNodeChannel func(chan chan bool)
 
 	eventChannel chan storeadapter.WatchEvent
 	sendEvents   bool
-	*sync.Mutex
+	sync.Mutex
 }
 
 func New() *FakeStoreAdapter {
@@ -78,9 +79,14 @@ func (adapter *FakeStoreAdapter) Reset() {
 		nodes: make(map[string]*containerNode),
 	}
 
-	adapter.Mutex = new(sync.Mutex)
 	adapter.sendEvents = false
 	adapter.eventChannel = make(chan storeadapter.WatchEvent)
+}
+
+func (adapter *FakeStoreAdapter) GetMaintainedNodeName() string {
+	adapter.Lock()
+	defer adapter.Unlock()
+	return adapter.maintainedNodeName
 }
 
 func (adapter *FakeStoreAdapter) Connect() error {
@@ -325,9 +331,15 @@ func (adapter *FakeStoreAdapter) keyComponents(key string) (components []string)
 }
 
 func (adapter *FakeStoreAdapter) MaintainNode(storeNode storeadapter.StoreNode) (status <-chan bool, releaseNode chan chan bool, err error) {
-	adapter.MaintainedNodeName = storeNode.Key
-	adapter.MaintainedNodeValue = storeNode.Value
-	adapter.ReleaseNodeChannel = make(chan chan bool, 1)
+	adapter.Lock()
+	defer adapter.Unlock()
 
-	return adapter.MaintainNodeStatus, adapter.ReleaseNodeChannel, adapter.MaintainNodeError
+	adapter.maintainedNodeName = storeNode.Key
+	adapter.MaintainedNodeValue = storeNode.Value
+	adapter.releaseNodeChannel = make(chan chan bool, 1)
+	if adapter.OnReleaseNodeChannel != nil {
+		go adapter.OnReleaseNodeChannel(adapter.releaseNodeChannel)
+	}
+
+	return adapter.MaintainNodeStatus, adapter.releaseNodeChannel, adapter.MaintainNodeError
 }
