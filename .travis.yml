@@ -8,6 +8,7 @@ install:
   - go install -v github.com/onsi/ginkgo/ginkgo
   - git clone https://github.com/coreos/etcd ../../coreos/etcd
   - pushd ../../coreos/etcd
+  - git checkout v0.4.6
   - ./build
   - mv ./bin/etcd $HOME/gopath/bin
   - popd
