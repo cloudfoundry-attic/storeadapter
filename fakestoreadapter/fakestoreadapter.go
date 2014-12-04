@@ -304,7 +304,20 @@ func (adapter *FakeStoreAdapter) Update(node storeadapter.StoreNode) error {
 }
 
 func (adapter *FakeStoreAdapter) CompareAndSwap(oldNode storeadapter.StoreNode, newNode storeadapter.StoreNode) error {
-	panic("not implemented")
+	adapter.Lock()
+	defer adapter.Unlock()
+	
+	existingNode, err := adapter.get(newNode.Key)
+
+	if err != nil {
+		return err
+	}
+
+	if string(oldNode.Value) != string(existingNode.Value) {
+		return storeadapter.ErrorKeyComparisonFailed
+	}
+
+	return adapter.setMulti([]storeadapter.StoreNode{newNode})
 }
 
 func (adapter *FakeStoreAdapter) CompareAndSwapByIndex(oldNodeIndex uint64, newNode storeadapter.StoreNode) error {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/cloudfoundry/storeadapter"
 	. "github.com/cloudfoundry/storeadapter/fakestoreadapter"
+	. "github.com/cloudfoundry/storeadapter/storenodematchers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -320,6 +321,69 @@ var _ = Describe("Fakestoreadapter", func() {
 				value, err := adapter.Get("/menu/breakfast")
 				Ω(err).ShouldNot(HaveOccurred())
 				Ω(value).Should(Equal(breakfastNode))
+			})
+		})
+	})
+
+	Describe("Compare-and-Swapping", func() {
+		Context("when the key is missing", func() {
+			It("returns a KeyNotFound error", func() {
+				node := storeadapter.StoreNode{
+					Key:   "not/a/real/key",
+					Value: []byte("value"),
+				}
+
+				err := adapter.CompareAndSwap(node, node)
+				Ω(err).Should(Equal(storeadapter.ErrorKeyNotFound))
+			})
+		})
+
+		Context("when the key is present", func() {
+			var (
+				nodeFoo storeadapter.StoreNode
+				nodeBar storeadapter.StoreNode
+			)
+
+			BeforeEach(func() {
+				nodeFoo = storeadapter.StoreNode{
+					Key:   "/foo",
+					Value: []byte("foo"),
+					TTL:   1,
+				}
+
+				nodeBar = storeadapter.StoreNode{
+					Key:   "/foo",
+					Value: []byte("bar"),
+					TTL:   2,
+				}
+
+				adapter.Create(nodeFoo)
+			})
+
+			Context("and the Value of oldNode is different", func() {
+				It("returns a KeyComparisonFailed error", func() {
+					err := adapter.CompareAndSwap(nodeBar, nodeBar)
+					Ω(err).Should(Equal(storeadapter.ErrorKeyComparisonFailed))
+				})
+
+				It("does not update the existing node", func() {
+					adapter.CompareAndSwap(nodeBar, nodeBar)
+
+					retrievedNode, err := adapter.Get("/foo")
+					Ω(err).ShouldNot(HaveOccurred())
+					Ω(retrievedNode).Should(MatchStoreNode(nodeFoo))
+				})
+			})
+
+			Context("and the Value of oldNode is identical", func() {
+				It("updates the node with the new node", func() {
+					err := adapter.CompareAndSwap(nodeFoo, nodeBar)
+					Ω(err).ShouldNot(HaveOccurred())
+
+					retrievedNode, err := adapter.Get("/foo")
+					Ω(err).ShouldNot(HaveOccurred())
+					Ω(retrievedNode).Should(MatchStoreNode(nodeBar))
+				})
 			})
 		})
 	})
