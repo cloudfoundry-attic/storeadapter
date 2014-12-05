@@ -291,7 +291,11 @@ func (adapter *FakeStoreAdapter) DeleteLeaves(keys ...string) error {
 	panic("not implemented")
 }
 
-func (adapter *FakeStoreAdapter) CompareAndDelete(node storeadapter.StoreNode) error {
+func (adapter *FakeStoreAdapter) CompareAndDelete(node ...storeadapter.StoreNode) error {
+	panic("not implemented")
+}
+
+func (adapter *FakeStoreAdapter) CompareAndDeleteByIndex(node ...storeadapter.StoreNode) error {
 	panic("not implemented")
 }
 
@@ -306,7 +310,7 @@ func (adapter *FakeStoreAdapter) Update(node storeadapter.StoreNode) error {
 func (adapter *FakeStoreAdapter) CompareAndSwap(oldNode storeadapter.StoreNode, newNode storeadapter.StoreNode) error {
 	adapter.Lock()
 	defer adapter.Unlock()
-	
+
 	existingNode, err := adapter.get(newNode.Key)
 
 	if err != nil {

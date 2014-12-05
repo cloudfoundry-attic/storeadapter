@@ -353,44 +353,55 @@ var _ = Describe("ETCD Store Adapter", func() {
 	})
 
 	Describe("Comparing-and-deleting", func() {
-		var node StoreNode
+		var nodeFoo StoreNode
+		var nodeBar StoreNode
 
 		BeforeEach(func() {
-			node = StoreNode{Key: "/foo", Value: []byte("some value")}
+			nodeFoo = StoreNode{Key: "/foo", Value: []byte("some foo value")}
+			nodeBar = StoreNode{Key: "/bar", Value: []byte("some bar value")}
 		})
 
-		Context("when a node exists at the key", func() {
+		Context("when nodes exist in the store", func() {
 			BeforeEach(func() {
-				err := adapter.Create(node)
+				err := adapter.Create(nodeFoo)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				err = adapter.Create(nodeBar)
 				Ω(err).ShouldNot(HaveOccurred())
 			})
 
-			It("deletes the existing node at the given key", func() {
-				err := adapter.CompareAndDelete(node)
+			It("deletes the given nodes", func() {
+				err := adapter.CompareAndDelete(nodeFoo, nodeBar)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				_, err = adapter.Get(node.Key)
+				_, err = adapter.Get(nodeFoo.Key)
+				Ω(err).Should(Equal(ErrorKeyNotFound))
+
+				_, err = adapter.Get(nodeBar.Key)
 				Ω(err).Should(Equal(ErrorKeyNotFound))
 			})
 
-			Context("but the comparison fails", func() {
+			Context("but the comparison fails for one node", func() {
 				BeforeEach(func() {
-					node.Value = []byte("some mismatched value")
+					nodeFoo.Value = []byte("some mismatched foo value")
 				})
 
 				It("returns an error", func() {
-					err := adapter.CompareAndDelete(node)
+					err := adapter.CompareAndDelete(nodeFoo, nodeBar)
 					Ω(err).Should(Equal(ErrorKeyComparisonFailed))
 
-					_, err = adapter.Get(node.Key)
+					_, err = adapter.Get(nodeFoo.Key)
 					Ω(err).ShouldNot(HaveOccurred())
+
+					_, err = adapter.Get(nodeBar.Key)
+					Ω(err).Should(Equal(ErrorKeyNotFound))
 				})
 			})
 		})
 
 		Context("when a node does not exist at the key", func() {
 			It("returns an error", func() {
-				err := adapter.CompareAndDelete(node)
+				err := adapter.CompareAndDelete(nodeFoo)
 				Ω(err).Should(Equal(ErrorKeyNotFound))
 			})
 		})
@@ -400,9 +411,89 @@ var _ = Describe("ETCD Store Adapter", func() {
 				err := adapter.Create(StoreNode{Key: "/dir/foo", Value: []byte("some value")})
 				Ω(err).ShouldNot(HaveOccurred())
 
-				newNode := StoreNode{Key: "/dir", Value: []byte("some value")}
+				parentNode := StoreNode{Key: "/dir", Value: []byte("some value")}
 
-				err = adapter.CompareAndSwap(newNode, newNode)
+				err = adapter.CompareAndDelete(parentNode)
+				Ω(err).Should(Equal(ErrorNodeIsDirectory))
+			})
+		})
+	})
+
+	Describe("Comparing-and-deleting-by-index", func() {
+		var nodeFoo StoreNode
+		var nodeBar StoreNode
+
+		BeforeEach(func() {
+			nodeFoo = StoreNode{Key: "/foo", Value: []byte("some foo value")}
+			nodeBar = StoreNode{Key: "/bar", Value: []byte("some bar value")}
+		})
+
+		Context("when nodes exist in the store", func() {
+			var etcdNodeFoo StoreNode
+			var etcdNodeBar StoreNode
+
+			BeforeEach(func() {
+				err := adapter.Create(nodeFoo)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				err = adapter.Create(nodeBar)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				etcdNodeFoo, err = adapter.Get(nodeFoo.Key)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				etcdNodeBar, err = adapter.Get(nodeBar.Key)
+				Ω(err).ShouldNot(HaveOccurred())
+			})
+
+			It("deletes the given nodes", func() {
+				err := adapter.CompareAndDeleteByIndex(etcdNodeFoo, etcdNodeBar)
+				Ω(err).ShouldNot(HaveOccurred())
+
+				_, err = adapter.Get(nodeFoo.Key)
+				Ω(err).Should(Equal(ErrorKeyNotFound))
+
+				_, err = adapter.Get(nodeBar.Key)
+				Ω(err).Should(Equal(ErrorKeyNotFound))
+			})
+
+			Context("but the comparison fails for one node", func() {
+				It("returns an error", func() {
+					err := adapter.CompareAndSwap(nodeFoo, nodeFoo)
+					Ω(err).ShouldNot(HaveOccurred())
+
+					err = adapter.CompareAndDeleteByIndex(etcdNodeFoo, etcdNodeBar)
+					Ω(err).Should(Equal(ErrorKeyComparisonFailed))
+
+					_, err = adapter.Get(nodeFoo.Key)
+					Ω(err).ShouldNot(HaveOccurred())
+
+					_, err = adapter.Get(nodeBar.Key)
+					Ω(err).Should(Equal(ErrorKeyNotFound))
+				})
+			})
+		})
+
+		Context("when a node does not exist at the key", func() {
+			BeforeEach(func() {
+				nodeFoo.Index = 1234
+			})
+
+			It("returns an error", func() {
+				err := adapter.CompareAndDeleteByIndex(nodeFoo)
+				Ω(err).Should(Equal(ErrorKeyNotFound))
+			})
+		})
+
+		Context("when a directory exists at the given key", func() {
+			It("returns an error", func() {
+				err := adapter.Create(StoreNode{Key: "/dir/foo", Value: []byte("some value")})
+				Ω(err).ShouldNot(HaveOccurred())
+
+				parentNode, err := adapter.ListRecursively("/dir")
+				Ω(err).ShouldNot(HaveOccurred())
+
+				err = adapter.CompareAndDeleteByIndex(parentNode)
 				Ω(err).Should(Equal(ErrorNodeIsDirectory))
 			})
 		})

@@ -36,7 +36,10 @@ type StoreAdapter interface {
 	DeleteLeaves(keys ...string) error
 
 	// CompareAndDelete and don't delete if the compare fails.
-	CompareAndDelete(StoreNode) error
+	CompareAndDelete(...StoreNode) error
+
+	// CompareAndDelete by index and don't delete if the compare fails.
+	CompareAndDeleteByIndex(...StoreNode) error
 
 	// Set the ttl on a directory
 	UpdateDirTTL(key string, ttl uint64) error

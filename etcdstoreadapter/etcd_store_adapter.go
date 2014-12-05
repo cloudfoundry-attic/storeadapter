@@ -150,7 +150,7 @@ func (adapter *ETCDStoreAdapter) ListRecursively(key string) (storeadapter.Store
 	}
 
 	if len(response.Node.Nodes) == 0 {
-		return storeadapter.StoreNode{Key: key, Dir: true, Value: []byte{}, ChildNodes: []storeadapter.StoreNode{}}, nil
+		return storeadapter.StoreNode{Key: key, Dir: true, Value: []byte{}, ChildNodes: []storeadapter.StoreNode{}, Index: response.Node.ModifiedIndex}, nil
 	}
 
 	return *adapter.makeStoreNode(response.Node), nil
@@ -262,20 +262,60 @@ func (adapter *ETCDStoreAdapter) DeleteLeaves(keys ...string) error {
 	return adapter.convertError(err)
 }
 
-func (adapter *ETCDStoreAdapter) CompareAndDelete(node storeadapter.StoreNode) error {
-	results := make(chan error, 1)
+func (adapter *ETCDStoreAdapter) CompareAndDelete(nodes ...storeadapter.StoreNode) error {
+	results := make(chan error, len(nodes))
 
-	adapter.workPool.Submit(func() {
-		_, err := adapter.client.CompareAndDelete(
-			node.Key,
-			string(node.Value),
-			0,
-		)
+	for _, node := range nodes {
+		node := node
+		adapter.workPool.Submit(func() {
+			_, err := adapter.client.CompareAndDelete(
+				node.Key,
+				string(node.Value),
+				0,
+			)
+			results <- err
+		})
+	}
 
-		results <- err
-	})
+	var err error
+	numReceived := 0
+	for numReceived < len(nodes) {
+		result := <-results
+		numReceived++
+		if err == nil {
+			err = result
+		}
+	}
 
-	return adapter.convertError(<-results)
+	return adapter.convertError(err)
+}
+
+func (adapter *ETCDStoreAdapter) CompareAndDeleteByIndex(nodes ...storeadapter.StoreNode) error {
+	results := make(chan error, len(nodes))
+
+	for _, node := range nodes {
+		node := node
+		adapter.workPool.Submit(func() {
+			_, err := adapter.client.CompareAndDelete(
+				node.Key,
+				"",
+				node.Index,
+			)
+			results <- err
+		})
+	}
+
+	var err error
+	numReceived := 0
+	for numReceived < len(nodes) {
+		result := <-results
+		numReceived++
+		if err == nil {
+			err = result
+		}
+	}
+
+	return adapter.convertError(err)
 }
 
 func (adapter *ETCDStoreAdapter) UpdateDirTTL(key string, ttl uint64) error {
@@ -380,6 +420,7 @@ func (adapter *ETCDStoreAdapter) makeStoreNode(etcdNode *etcd.Node) *storeadapte
 			Value:      []byte{},
 			ChildNodes: []storeadapter.StoreNode{},
 			TTL:        uint64(etcdNode.TTL),
+			Index:      uint64(etcdNode.ModifiedIndex),
 		}
 
 		for _, child := range etcdNode.Nodes {
