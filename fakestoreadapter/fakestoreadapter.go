@@ -261,6 +261,10 @@ func (adapter *FakeStoreAdapter) Delete(keys ...string) error {
 	adapter.Lock()
 	defer adapter.Unlock()
 
+	return adapter.deleteKeys(keys...)
+}
+
+func (adapter *FakeStoreAdapter) deleteKeys(keys ...string) error {
 	for _, key := range keys {
 		node, _ := adapter.get(key)
 
@@ -291,8 +295,27 @@ func (adapter *FakeStoreAdapter) DeleteLeaves(keys ...string) error {
 	panic("not implemented")
 }
 
-func (adapter *FakeStoreAdapter) CompareAndDelete(node ...storeadapter.StoreNode) error {
-	panic("not implemented")
+func (adapter *FakeStoreAdapter) CompareAndDelete(nodes ...storeadapter.StoreNode) error {
+	adapter.Lock()
+	defer adapter.Unlock()
+
+	if len(nodes) != 1 {
+		panic("not implemented for zero/multiple nodes")
+	}
+
+	node := nodes[0]
+
+	existingNode, err := adapter.get(node.Key)
+
+	if err != nil {
+		return err
+	}
+
+	if string(node.Value) != string(existingNode.Value) {
+		return storeadapter.ErrorKeyComparisonFailed
+	}
+
+	return adapter.deleteKeys(node.Key)
 }
 
 func (adapter *FakeStoreAdapter) CompareAndDeleteByIndex(node ...storeadapter.StoreNode) error {

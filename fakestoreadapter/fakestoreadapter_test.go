@@ -325,6 +325,67 @@ var _ = Describe("Fakestoreadapter", func() {
 		})
 	})
 
+	Describe("Compare-and-Deleting", func() {
+		var (
+			nodeFoo storeadapter.StoreNode
+			nodeBar storeadapter.StoreNode
+		)
+
+		BeforeEach(func() {
+			nodeFoo = storeadapter.StoreNode{
+				Key:   "/foo",
+				Value: []byte("foo"),
+				TTL:   1,
+			}
+
+			nodeBar = storeadapter.StoreNode{
+				Key:   "/foo",
+				Value: []byte("bar"),
+				TTL:   2,
+			}
+		})
+
+		Context("when passed multiple keys", func() {
+			It("Panics", func() {
+				Expect(func() { adapter.CompareAndDelete(nodeFoo, nodeBar) }).To(Panic())
+			})
+		})
+
+		Context("when the key is missing", func() {
+			It("returns a KeyNotFound error", func() {
+
+				err := adapter.CompareAndDelete(nodeFoo)
+				Ω(err).Should(Equal(storeadapter.ErrorKeyNotFound))
+			})
+		})
+
+		Context("when the Value of the existing node is different", func() {
+			BeforeEach(func() {
+				adapter.Create(nodeFoo)
+			})
+
+			It("does NOT delete the existing node and returns a KeyComparisonFailed error", func() {
+				err := adapter.CompareAndDelete(nodeBar)
+				Expect(err).To(Equal(storeadapter.ErrorKeyComparisonFailed))
+				node, _ := adapter.Get("/foo")
+				Expect(node).To(Equal(nodeFoo))
+			})
+		})
+
+		Context("when the Value of the existing node is identical", func() {
+			BeforeEach(func() {
+				adapter.Create(nodeFoo)
+			})
+
+			It("deletes the existing node and returns nil", func() {
+				err := adapter.CompareAndDelete(nodeFoo)
+				Expect(err).NotTo(HaveOccurred())
+				_, err = adapter.Get("/foo")
+				Expect(err).To(Equal(storeadapter.ErrorKeyNotFound))
+			})
+		})
+	})
+
 	Describe("Compare-and-Swapping", func() {
 		Context("when the key is missing", func() {
 			It("returns a KeyNotFound error", func() {
