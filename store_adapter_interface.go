@@ -1,5 +1,7 @@
 package storeadapter
 
+//go:generate counterfeiter . StoreAdapter
+
 type StoreAdapter interface {
 	// Intiailize connection to server. For a store with no
 	// persistent connection, this effectively just tests connectivity.
