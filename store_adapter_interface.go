@@ -14,7 +14,7 @@ type StoreAdapter interface {
 	Update(StoreNode) error
 
 	// CompareAndSwap a node and don't swap if the compare fails.
-	CompareAndSwap(StoreNode, StoreNode) error
+	CompareAndSwap(oldNode, newNode StoreNode) error
 	CompareAndSwapByIndex(prevIndex uint64, newNode StoreNode) error
 
 	// Set multiple nodes at once. If any of them fail,
