@@ -8,7 +8,7 @@ import (
 	"github.com/cloudfoundry/gunk/workpool"
 	"github.com/cloudfoundry/storeadapter"
 	"github.com/coreos/go-etcd/etcd"
-	"github.com/nu7hatch/gouuid"
+	uuid "github.com/nu7hatch/gouuid"
 )
 
 type ETCDStoreAdapter struct {

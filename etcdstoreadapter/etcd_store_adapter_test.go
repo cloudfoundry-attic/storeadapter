@@ -191,7 +191,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 				It("should list the contents recursively", func() {
 					value, err := adapter.ListRecursively("/")
 					Ω(err).ShouldNot(HaveOccurred())
-					Ω(value.Key).Should(Equal("/"))
+					Ω(value.Key).Should(Equal(""))
 					Ω(value.Dir).Should(BeTrue())
 					Ω(value.ChildNodes).Should(HaveLen(1))
 					menuNode := value.ChildNodes[0]
@@ -527,10 +527,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 		}
 
 		waitTilLocked := func(storeNode StoreNode) chan chan bool {
-			nodeStatus, releaseLock, _ := adapter.MaintainNode(storeNode)
+			nodeStatus, releaseLock, err := adapter.MaintainNode(storeNode)
+			Ω(err).ShouldNot(HaveOccurred())
 
 			reporter := test_helpers.NewStatusReporter(nodeStatus)
-			Eventually(reporter.Reporting).Should(BeTrue())
+			Eventually(reporter.Reporting, 2.0).Should(BeTrue())
 			Eventually(reporter.Locked).Should(BeTrue())
 
 			return releaseLock
@@ -539,7 +540,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 		BeforeEach(func() {
 			uniqueStoreNodeForThisTest = StoreNode{
 				Key: fmt.Sprintf("analyzer-%d", counter),
-				TTL: 1,
+				TTL: 2,
 			}
 
 			counter++
@@ -582,14 +583,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 				Ω(nodeStatus).ShouldNot(BeNil())
 				Ω(releaseLock).ShouldNot(BeNil())
 
-				var status bool
-				Eventually(nodeStatus, 2.0).Should(Receive(&status))
-				Ω(status).Should(BeTrue())
+				Eventually(nodeStatus, 2.0).Should(Receive(BeTrue()))
 
 				start := time.Now()
-				Eventually(nodeStatus, 2.0).Should(Receive(&status))
-				Ω(status).Should(BeTrue())
-				Ω(time.Now().Sub(start)).Should(BeNumerically("==", 1*time.Second, 400*time.Millisecond))
+				Eventually(nodeStatus, 4.0).Should(Receive(BeTrue()))
+				Ω(time.Now().Sub(start)).Should(BeNumerically("~", 2*time.Second, 500*time.Millisecond))
 
 				releaseMaintainedNode(releaseLock)
 			})
@@ -680,13 +678,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 				nodeStatus2, releaseLock2, err2 := adapter.MaintainNode(otherStoreNodeForThisTest)
 				Ω(err2).ShouldNot(HaveOccurred())
 
-				Consistently(nodeStatus2).ShouldNot(Receive())
+				Consistently(nodeStatus2).ShouldNot(Receive(BeTrue()))
 
 				releaseMaintainedNode(releaseLock1)
 
-				var status bool
-				Eventually(nodeStatus2, 2.0).Should(Receive(&status))
-				Ω(status).Should(BeTrue())
+				Eventually(nodeStatus2).Should(Receive(BeTrue()))
 
 				releaseMaintainedNode(releaseLock2)
 			})

@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -59,7 +60,7 @@ func (etcd *ETCDClusterRunner) ComeBack() {
 func (etcd *ETCDClusterRunner) NodeURLS() []string {
 	urls := make([]string, etcd.numNodes)
 	for i := 0; i < etcd.numNodes; i++ {
-		urls[i] = "http://" + etcd.clientUrl(i)
+		urls[i] = etcd.clientURL(i)
 	}
 	return urls
 }
@@ -79,9 +80,10 @@ func (etcd *ETCDClusterRunner) Reset() {
 
 	if running {
 		response, err := etcd.client.Get("/", false, false)
-		Ω(err).ShouldNot(HaveOccurred())
-		for _, doomed := range response.Node.Nodes {
-			etcd.client.Delete(doomed.Key, true)
+		if err == nil {
+			for _, doomed := range response.Node.Nodes {
+				etcd.client.Delete(doomed.Key, true)
+			}
 		}
 	}
 }
@@ -119,19 +121,30 @@ func (etcd *ETCDClusterRunner) start(nuke bool) {
 
 	etcd.etcdSessions = make([]*gexec.Session, etcd.numNodes)
 
+	clusterURLs := make([]string, etcd.numNodes)
+	for i := 0; i < etcd.numNodes; i++ {
+		clusterURLs[i] = etcd.nodeName(i) + "=" + etcd.serverURL(i)
+	}
+
 	for i := 0; i < etcd.numNodes; i++ {
 		if nuke {
 			etcd.nukeArtifacts(i)
 		}
 
 		if etcd.detectRunningEtcd(i) {
-			log.Fatalf("Detected an ETCD already running on %s", etcd.clientUrl(i))
+			log.Fatalf("Detected an ETCD already running on %s", etcd.clientURL(i))
 		}
 
 		os.MkdirAll(etcd.tmpPath(i), 0700)
-		args := []string{"-data-dir", etcd.tmpPath(i), "-addr", etcd.clientUrl(i), "-peer-addr", etcd.serverUrl(i), "-name", etcd.nodeName(i)}
-		if i != 0 {
-			args = append(args, "-peers", etcd.serverUrl(0))
+		args := []string{
+			"--name", etcd.nodeName(i),
+			"--data-dir", etcd.tmpPath(i),
+			"--listen-client-urls", etcd.clientURL(i),
+			"--listen-peer-urls", etcd.serverURL(i),
+			"--initial-cluster", strings.Join(clusterURLs, ","),
+			"--initial-advertise-peer-urls", etcd.serverURL(i),
+			"--initial-cluster-state", "new",
+			"--advertise-client-urls", etcd.clientURL(i),
 		}
 
 		session, err := gexec.Start(
@@ -144,6 +157,11 @@ func (etcd *ETCDClusterRunner) start(nuke bool) {
 		etcd.etcdSessions[i] = session
 
 		Eventually(func() bool {
+			defer func() {
+				// https://github.com/coreos/go-etcd/issues/114
+				recover()
+			}()
+
 			return etcd.detectRunningEtcd(i)
 		}, 3, 0.05).Should(BeTrue(), "Expected ETCD to be up and running")
 	}
@@ -188,7 +206,7 @@ func (etcd *ETCDClusterRunner) markAsStopped() {
 
 func (etcd *ETCDClusterRunner) detectRunningEtcd(index int) bool {
 	client := etcdclient.NewClient([]string{})
-	return client.SetCluster([]string{"http://" + etcd.clientUrl(index)})
+	return client.SetCluster([]string{etcd.clientURL(index)})
 }
 
 func (etcd *ETCDClusterRunner) fastForwardTime(etcdNode *etcdclient.Node, seconds int) {
@@ -210,12 +228,12 @@ func (etcd *ETCDClusterRunner) fastForwardTime(etcdNode *etcdclient.Node, second
 	}
 }
 
-func (etcd *ETCDClusterRunner) clientUrl(index int) string {
-	return fmt.Sprintf("127.0.0.1:%d", etcd.port(index))
+func (etcd *ETCDClusterRunner) clientURL(index int) string {
+	return fmt.Sprintf("http://127.0.0.1:%d", etcd.port(index))
 }
 
-func (etcd *ETCDClusterRunner) serverUrl(index int) string {
-	return fmt.Sprintf("127.0.0.1:%d", etcd.port(index)+3000)
+func (etcd *ETCDClusterRunner) serverURL(index int) string {
+	return fmt.Sprintf("http://127.0.0.1:%d", etcd.port(index)+3000)
 }
 
 func (etcd *ETCDClusterRunner) nodeName(index int) string {

@@ -11,7 +11,7 @@ type FakeStoreAdapter struct {
 	ConnectStub        func() error
 	connectMutex       sync.RWMutex
 	connectArgsForCall []struct{}
-	connectReturns struct {
+	connectReturns     struct {
 		result1 error
 	}
 	CreateStub        func(storeadapter.StoreNode) error
@@ -128,7 +128,7 @@ type FakeStoreAdapter struct {
 	DisconnectStub        func() error
 	disconnectMutex       sync.RWMutex
 	disconnectArgsForCall []struct{}
-	disconnectReturns struct {
+	disconnectReturns     struct {
 		result1 error
 	}
 	MaintainNodeStub        func(storeNode storeadapter.StoreNode) (lostNode <-chan bool, releaseNode chan chan bool, err error)
