@@ -6,15 +6,8 @@ install:
   - go get -t -v ./...
   - mkdir -p $HOME/gopath/bin
   - go install -v github.com/onsi/ginkgo/ginkgo
-  - git clone https://github.com/coreos/etcd ../../coreos/etcd
-  - pushd ../../coreos/etcd
-  - git checkout v0.4.6
-  - ./build
-  - mv ./bin/etcd $HOME/gopath/bin
-  - popd
-  - mkdir -p $HOME/bin
-  - pushd $HOME/bin
-  - popd
+  - curl -L https://github.com/coreos/etcd/releases/download/v2.0.0/etcd-v2.0.0-linux-amd64.tar.gz | tar zxf - -C /tmp
+  - mv /tmp/etcd-v2.0.0-linux-amd64/etcd $HOME/gopath/bin
 
 script:
   - export PATH=$HOME/gopath/bin:$PATH
