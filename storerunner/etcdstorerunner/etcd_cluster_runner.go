@@ -16,6 +16,7 @@ import (
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	"github.com/pivotal-golang/clock"
 )
 
 type ETCDClusterRunner struct {
@@ -104,6 +105,20 @@ func (etcd *ETCDClusterRunner) Adapter() storeadapter.StoreAdapter {
 	pool := workpool.NewWorkPool(10)
 	adapter := etcdstoreadapter.NewETCDStoreAdapter(etcd.NodeURLS(), pool)
 	adapter.Connect()
+	return adapter
+}
+
+func (etcd *ETCDClusterRunner) RetryableAdapter() storeadapter.StoreAdapter {
+	pool := workpool.NewWorkPool(10)
+
+	adapter := storeadapter.NewRetryable(
+		etcdstoreadapter.NewETCDStoreAdapter(etcd.NodeURLS(), pool),
+		clock.NewClock(),
+		storeadapter.ExponentialRetryPolicy{},
+	)
+
+	adapter.Connect()
+
 	return adapter
 }
 
