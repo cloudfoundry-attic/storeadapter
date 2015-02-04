@@ -178,7 +178,7 @@ func (etcd *ETCDClusterRunner) start(nuke bool) {
 			}()
 
 			return etcd.detectRunningEtcd(i)
-		}, 3, 0.05).Should(BeTrue(), "Expected ETCD to be up and running")
+		}, 10, 0.05).Should(BeTrue(), "Expected ETCD to be up and running")
 	}
 
 	etcd.client = etcdclient.NewClient(etcd.NodeURLS())
