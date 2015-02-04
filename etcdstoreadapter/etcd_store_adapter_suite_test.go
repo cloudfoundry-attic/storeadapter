@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"testing"
+	"time"
 )
 
 var etcdRunner *etcdstorerunner.ETCDClusterRunner
@@ -17,6 +18,8 @@ var etcdRunner *etcdstorerunner.ETCDClusterRunner
 func TestStoreAdapter(t *testing.T) {
 	registerSignalHandler()
 	RegisterFailHandler(Fail)
+
+	SetDefaultEventuallyTimeout(5 * time.Second)
 
 	etcdPort := 5000 + (config.GinkgoConfig.ParallelNode-1)*10
 	etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1)
