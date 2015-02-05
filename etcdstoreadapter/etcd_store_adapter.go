@@ -31,7 +31,9 @@ func NewETCDStoreAdapter(urls []string, workPool *workpool.WorkPool) *ETCDStoreA
 func (adapter *ETCDStoreAdapter) Connect() error {
 	adapter.client = etcd.NewClient(adapter.urls)
 
-	return nil
+	// should only really fail if an invalid consistency value is given,
+	// but might as well propagate to fit the interface.
+	return adapter.client.SetConsistency(etcd.STRONG_CONSISTENCY)
 }
 
 func (adapter *ETCDStoreAdapter) Disconnect() error {
