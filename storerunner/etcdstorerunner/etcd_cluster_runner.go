@@ -13,18 +13,18 @@ import (
 	"github.com/cloudfoundry/storeadapter"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	etcdclient "github.com/coreos/go-etcd/etcd"
-	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
 	"github.com/pivotal-golang/clock"
+	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/ginkgomon"
 )
 
 type ETCDClusterRunner struct {
-	startingPort int
-	numNodes     int
-	etcdSessions []*gexec.Session
-	running      bool
-	client       *etcdclient.Client
+	startingPort  int
+	numNodes      int
+	etcdProcesses []ifrit.Process
+	running       bool
+	client        *etcdclient.Client
 
 	mutex *sync.RWMutex
 }
@@ -134,7 +134,7 @@ func (etcd *ETCDClusterRunner) start(nuke bool) {
 	etcd.mutex.Lock()
 	defer etcd.mutex.Unlock()
 
-	etcd.etcdSessions = make([]*gexec.Session, etcd.numNodes)
+	etcd.etcdProcesses = make([]ifrit.Process, etcd.numNodes)
 
 	clusterURLs := make([]string, etcd.numNodes)
 	for i := 0; i < etcd.numNodes; i++ {
@@ -151,25 +151,25 @@ func (etcd *ETCDClusterRunner) start(nuke bool) {
 		}
 
 		os.MkdirAll(etcd.tmpPath(i), 0700)
-		args := []string{
-			"--name", etcd.nodeName(i),
-			"--data-dir", etcd.tmpPath(i),
-			"--listen-client-urls", etcd.clientURL(i),
-			"--listen-peer-urls", etcd.serverURL(i),
-			"--initial-cluster", strings.Join(clusterURLs, ","),
-			"--initial-advertise-peer-urls", etcd.serverURL(i),
-			"--initial-cluster-state", "new",
-			"--advertise-client-urls", etcd.clientURL(i),
-		}
+		process := ginkgomon.Invoke(ginkgomon.New(ginkgomon.Config{
+			Name:              "etcd_cluster",
+			AnsiColorCode:     "33m",
+			StartCheck:        "etcdserver: published",
+			StartCheckTimeout: 5 * time.Second,
+			Command: exec.Command(
+				"etcd",
+				"--name", etcd.nodeName(i),
+				"--data-dir", etcd.tmpPath(i),
+				"--listen-client-urls", etcd.clientURL(i),
+				"--listen-peer-urls", etcd.serverURL(i),
+				"--initial-cluster", strings.Join(clusterURLs, ","),
+				"--initial-advertise-peer-urls", etcd.serverURL(i),
+				"--initial-cluster-state", "new",
+				"--advertise-client-urls", etcd.clientURL(i),
+			),
+		}))
 
-		session, err := gexec.Start(
-			exec.Command("etcd", args...),
-			gexec.NewPrefixedWriter("\x1b[32m[o]\x1b[33m[etcd_cluster]\x1b[0m ", ginkgo.GinkgoWriter),
-			gexec.NewPrefixedWriter("\x1b[91m[e]\x1b[33m[etcd_cluster]\x1b[0m ", ginkgo.GinkgoWriter),
-		)
-		Ω(err).ShouldNot(HaveOccurred(), "Make sure etcd is compiled and on your $PATH.")
-
-		etcd.etcdSessions[i] = session
+		etcd.etcdProcesses[i] = process
 
 		Eventually(func() bool {
 			defer func() {
@@ -191,7 +191,7 @@ func (etcd *ETCDClusterRunner) stop(nuke bool) {
 
 	if etcd.running {
 		for i := 0; i < etcd.numNodes; i++ {
-			etcd.etcdSessions[i].Interrupt().Wait(5 * time.Second)
+			ginkgomon.Interrupt(etcd.etcdProcesses[i], 5*time.Second)
 			if nuke {
 				etcd.nukeArtifacts(i)
 			}
@@ -206,7 +206,7 @@ func (etcd *ETCDClusterRunner) kill() {
 
 	if etcd.running {
 		for i := 0; i < etcd.numNodes; i++ {
-			etcd.etcdSessions[i].Kill().Wait(5 * time.Second)
+			ginkgomon.Kill(etcd.etcdProcesses[i], 5*time.Second)
 			etcd.nukeArtifacts(i)
 		}
 		etcd.markAsStopped()
@@ -214,7 +214,7 @@ func (etcd *ETCDClusterRunner) kill() {
 }
 
 func (etcd *ETCDClusterRunner) markAsStopped() {
-	etcd.etcdSessions = nil
+	etcd.etcdProcesses = nil
 	etcd.running = false
 	etcd.client = nil
 }
