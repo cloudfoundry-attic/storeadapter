@@ -1,6 +1,7 @@
 package etcdstorerunner
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -13,6 +14,8 @@ import (
 	"github.com/cloudfoundry/storeadapter"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	etcdclient "github.com/coreos/go-etcd/etcd"
+	"github.com/go-gorp/gorp"
+	_ "github.com/go-sql-driver/mysql"
 	. "github.com/onsi/gomega"
 	"github.com/pivotal-golang/clock"
 	"github.com/tedsuo/ifrit"
@@ -86,6 +89,11 @@ func (etcd *ETCDClusterRunner) Reset() {
 				etcd.client.Delete(doomed.Key, true)
 			}
 		}
+
+		dbmap, err := connectToDB()
+		Ω(err).ShouldNot(HaveOccurred())
+
+		dbmap.Exec("truncate table tasks")
 	}
 }
 
@@ -194,6 +202,11 @@ func (etcd *ETCDClusterRunner) stop(nuke bool) {
 			ginkgomon.Interrupt(etcd.etcdProcesses[i], 5*time.Second)
 			if nuke {
 				etcd.nukeArtifacts(i)
+
+				dbmap, err := connectToDB()
+				Ω(err).ShouldNot(HaveOccurred())
+
+				dbmap.Exec("truncate table tasks")
 			}
 		}
 		etcd.markAsStopped()
@@ -211,6 +224,29 @@ func (etcd *ETCDClusterRunner) kill() {
 		}
 		etcd.markAsStopped()
 	}
+}
+
+var dbMutex = &sync.Mutex{}
+var db *sql.DB
+var dbmap *gorp.DbMap
+
+func connectToDB() (*gorp.DbMap, error) {
+	dbMutex.Lock()
+	defer dbMutex.Unlock()
+
+	if dbmap == nil {
+		var err error
+		db, err = sql.Open("mysql", "root:password@tcp(127.0.0.1:3306)/bbs")
+		if err != nil {
+			return nil, err
+		}
+		dbmap = &gorp.DbMap{Db: db, Dialect: gorp.MySQLDialect{
+			Engine:   "InnoDB",
+			Encoding: "UTF8",
+		}}
+	}
+
+	return dbmap, nil
 }
 
 func (etcd *ETCDClusterRunner) markAsStopped() {
