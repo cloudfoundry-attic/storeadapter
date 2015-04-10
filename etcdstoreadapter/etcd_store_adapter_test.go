@@ -43,6 +43,17 @@ var _ = Describe("ETCD Store Adapter", func() {
 		adapter.Disconnect()
 	})
 
+	Describe("Connect", func() {
+		Context("when server is down", func() {
+			It("should return an error", func() {
+				adapter = NewETCDStoreAdapter([]string{"http://127.0.0.1:6000"},
+					workpool.NewWorkPool(10))
+				err := adapter.Connect()
+				Ω(err).Should(HaveOccurred())
+			})
+		})
+	})
+
 	Describe("Get", func() {
 		BeforeEach(func() {
 			err := adapter.SetMulti([]StoreNode{breakfastNode, lunchNode})
