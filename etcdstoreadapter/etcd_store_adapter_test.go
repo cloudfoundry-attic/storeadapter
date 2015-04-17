@@ -33,8 +33,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 			Value: []byte("burgers"),
 		}
 
-		adapter = NewETCDStoreAdapter(etcdRunner.NodeURLS(),
-			workpool.NewWorkPool(10))
+		adapter = NewETCDStoreAdapter(etcdRunner.NodeURLS(), workpool.NewWorkPool(10))
 		err := adapter.Connect()
 		Ω(err).ShouldNot(HaveOccurred())
 	})
@@ -96,7 +95,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 
 			It("should return a timeout error", func() {
 				value, err := adapter.Get("/foo/bar")
-				Ω(err).Should(Equal(ErrorTimeout))
+				Ω(err).Should(HaveOccurred())
 				Ω(value).Should(BeZero())
 			})
 		})
@@ -154,7 +153,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 
 			It("should return a timeout error", func() {
 				err := adapter.SetMulti([]StoreNode{breakfastNode})
-				Ω(err).Should(Equal(ErrorTimeout))
+				Ω(err).Should(HaveOccurred())
 			})
 		})
 	})
@@ -300,7 +299,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 
 			It("should return a timeout error", func() {
 				value, err := adapter.ListRecursively("/menu")
-				Ω(err).Should(Equal(ErrorTimeout))
+				Ω(err).Should(HaveOccurred())
 				Ω(value).Should(BeZero())
 			})
 		})
@@ -358,7 +357,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 
 			It("should return a timeout error", func() {
 				err := adapter.Delete("/menu/breakfast")
-				Ω(err).Should(Equal(ErrorTimeout))
+				Ω(err).Should(HaveOccurred())
 			})
 		})
 	})
@@ -1222,7 +1221,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 				Expect(event.Type).To(Equal(CreateEvent))
 				Expect(event.Node.Key).To(Equal("/foo/a"))
 
-				Ω(<-errChan).Should(Equal(ErrorTimeout))
+				Ω(<-errChan).Should(HaveOccurred())
 
 				close(done)
 			}, 5)

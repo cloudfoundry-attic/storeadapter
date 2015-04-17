@@ -1,6 +1,7 @@
 package etcdstoreadapter
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -12,7 +13,6 @@ import (
 )
 
 type ETCDStoreAdapter struct {
-	urls              []string
 	client            *etcd.Client
 	workPool          *workpool.WorkPool
 	inflightWatches   map[chan bool]bool
@@ -20,8 +20,11 @@ type ETCDStoreAdapter struct {
 }
 
 func NewETCDStoreAdapter(urls []string, workPool *workpool.WorkPool) *ETCDStoreAdapter {
+	client := etcd.NewClient(urls)
+	client.SetConsistency(etcd.STRONG_CONSISTENCY)
+
 	return &ETCDStoreAdapter{
-		urls:              urls,
+		client:            client,
 		workPool:          workPool,
 		inflightWatches:   map[chan bool]bool{},
 		inflightWatchLock: &sync.Mutex{},
@@ -29,15 +32,11 @@ func NewETCDStoreAdapter(urls []string, workPool *workpool.WorkPool) *ETCDStoreA
 }
 
 func (adapter *ETCDStoreAdapter) Connect() error {
-	adapter.client = etcd.NewClient(adapter.urls)
-
 	if !adapter.client.SyncCluster() {
-		return fmt.Errorf("cann't sync with the etcd cluster")
+		return errors.New("sync cluster failed")
 	}
 
-	// should only really fail if an invalid consistency value is given,
-	// but might as well propagate to fit the interface.
-	return adapter.client.SetConsistency(etcd.STRONG_CONSISTENCY)
+	return nil
 }
 
 func (adapter *ETCDStoreAdapter) Disconnect() error {

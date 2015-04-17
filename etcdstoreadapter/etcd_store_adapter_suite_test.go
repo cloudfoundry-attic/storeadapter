@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
 
 	"github.com/cloudfoundry/storeadapter/storerunner/etcdstorerunner"
 
@@ -21,15 +22,24 @@ func TestStoreAdapter(t *testing.T) {
 
 	SetDefaultEventuallyTimeout(5 * time.Second)
 
-	etcdPort := 5000 + (config.GinkgoConfig.ParallelNode-1)*10
-	etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1)
-
-	etcdRunner.Start()
-
 	RunSpecs(t, "ETCD Store Adapter Suite")
-
-	stopStores()
 }
+
+var _ = SynchronizedBeforeSuite(func() []byte {
+	return nil
+}, func(encodedBuiltArtifacts []byte) {
+	etcdPort := 5000 + (config.GinkgoConfig.ParallelNode)*10
+	etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1)
+	etcdRunner.Start()
+})
+
+var _ = SynchronizedAfterSuite(func() {
+	if etcdRunner != nil {
+		etcdRunner.Stop()
+	}
+}, func() {
+	gexec.CleanupBuildArtifacts()
+})
 
 var _ = BeforeEach(func() {
 	etcdRunner.Reset()
