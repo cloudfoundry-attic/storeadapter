@@ -155,7 +155,7 @@ func (etcd *ETCDClusterRunner) start(nuke bool) {
 			Name:              "etcd_cluster",
 			AnsiColorCode:     "33m",
 			StartCheck:        "etcdserver: published",
-			StartCheckTimeout: 5 * time.Second,
+			StartCheckTimeout: 10 * time.Second,
 			Command: exec.Command(
 				"etcd",
 				"--name", etcd.nodeName(i),
