@@ -129,7 +129,7 @@ func (etcd *ETCDClusterRunner) start(nuke bool) {
 		}
 
 		os.MkdirAll(etcd.tmpPath(i), 0700)
-		args := []string{"-data-dir", etcd.tmpPath(i), "-addr", etcd.clientUrl(i), "-peer-addr", etcd.serverUrl(i), "-name", etcd.nodeName(i)}
+		args := []string{"-data-dir", etcd.tmpPath(i), "-addr", etcd.clientUrl(i)}
 		if i != 0 {
 			args = append(args, "-peers", etcd.serverUrl(0))
 		}
