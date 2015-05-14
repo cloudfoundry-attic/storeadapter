@@ -108,8 +108,8 @@ func (etcd *ETCDClusterRunner) Adapter() storeadapter.StoreAdapter {
 	return adapter
 }
 
-func (etcd *ETCDClusterRunner) RetryableAdapter() storeadapter.StoreAdapter {
-	pool := workpool.NewWorkPool(10)
+func (etcd *ETCDClusterRunner) RetryableAdapter(workPoolSize int) storeadapter.StoreAdapter {
+	pool := workpool.NewWorkPool(workPoolSize)
 
 	adapter := storeadapter.NewRetryable(
 		etcdstoreadapter.NewETCDStoreAdapter(etcd.NodeURLS(), pool),
