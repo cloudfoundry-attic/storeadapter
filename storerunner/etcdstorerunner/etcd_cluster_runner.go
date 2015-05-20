@@ -96,14 +96,14 @@ func (etcd *ETCDClusterRunner) FastForwardTime(seconds int) {
 
 	if running {
 		response, err := etcd.client.Get("/", false, true)
-		Ω(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 		etcd.fastForwardTime(response.Node, seconds)
 	}
 }
 
 func (etcd *ETCDClusterRunner) Adapter() storeadapter.StoreAdapter {
 	pool, err := workpool.NewWorkPool(10)
-	Ω(err).ShouldNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 	adapter := etcdstoreadapter.NewETCDStoreAdapter(etcd.NodeURLS(), pool)
 	adapter.Connect()
 	return adapter
@@ -111,7 +111,7 @@ func (etcd *ETCDClusterRunner) Adapter() storeadapter.StoreAdapter {
 
 func (etcd *ETCDClusterRunner) RetryableAdapter(workPoolSize int) storeadapter.StoreAdapter {
 	pool, err := workpool.NewWorkPool(workPoolSize)
-	Ω(err).ShouldNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	adapter := storeadapter.NewRetryable(
 		etcdstoreadapter.NewETCDStoreAdapter(etcd.NodeURLS(), pool),
@@ -237,10 +237,10 @@ func (etcd *ETCDClusterRunner) fastForwardTime(etcdNode *etcdclient.Node, second
 		}
 		if etcdNode.TTL <= int64(seconds) {
 			_, err := etcd.client.Delete(etcdNode.Key, true)
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 		} else {
 			_, err := etcd.client.Set(etcdNode.Key, etcdNode.Value, uint64(etcdNode.TTL-int64(seconds)))
-			Ω(err).ShouldNot(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 		}
 	}
 }

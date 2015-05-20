@@ -49,7 +49,7 @@ var _ = Describe("Retryable", func() {
 					close(durations)
 
 					retryPolicy.DelayForStub = func(failedAttempts uint) (time.Duration, bool) {
-						Ω(attempts()).Should(Equal(int(failedAttempts)))
+						Expect(attempts()).To(Equal(int(failedAttempts)))
 
 						select {
 						case d, ok := <-durations:
@@ -59,19 +59,19 @@ var _ = Describe("Retryable", func() {
 				})
 
 				It("continuously retries with an increasing attempt count", func() {
-					Ω(retryPolicy.DelayForCallCount()).Should(Equal(4))
-					Ω(sleeper.SleepCallCount()).Should(Equal(3))
+					Expect(retryPolicy.DelayForCallCount()).To(Equal(4))
+					Expect(sleeper.SleepCallCount()).To(Equal(3))
 
-					Ω(retryPolicy.DelayForArgsForCall(0)).Should(Equal(uint(1)))
-					Ω(sleeper.SleepArgsForCall(0)).Should(Equal(time.Second))
+					Expect(retryPolicy.DelayForArgsForCall(0)).To(Equal(uint(1)))
+					Expect(sleeper.SleepArgsForCall(0)).To(Equal(time.Second))
 
-					Ω(retryPolicy.DelayForArgsForCall(1)).Should(Equal(uint(2)))
-					Ω(sleeper.SleepArgsForCall(1)).Should(Equal(2 * time.Second))
+					Expect(retryPolicy.DelayForArgsForCall(1)).To(Equal(uint(2)))
+					Expect(sleeper.SleepArgsForCall(1)).To(Equal(2 * time.Second))
 
-					Ω(retryPolicy.DelayForArgsForCall(2)).Should(Equal(uint(3)))
-					Ω(sleeper.SleepArgsForCall(2)).Should(Equal(1000 * time.Second))
+					Expect(retryPolicy.DelayForArgsForCall(2)).To(Equal(uint(3)))
+					Expect(sleeper.SleepArgsForCall(2)).To(Equal(1000 * time.Second))
 
-					Ω(errResult).Should(Equal(ErrorTimeout))
+					Expect(errResult).To(Equal(ErrorTimeout))
 				})
 			})
 		})
@@ -85,7 +85,7 @@ var _ = Describe("Retryable", func() {
 			})
 
 			It("propagates the error", func() {
-				Ω(errResult).Should(Equal(adapterErr))
+				Expect(errResult).To(Equal(adapterErr))
 			})
 		})
 
@@ -97,7 +97,7 @@ var _ = Describe("Retryable", func() {
 			example()
 
 			It("does not error", func() {
-				Ω(errResult).ShouldNot(HaveOccurred())
+				Expect(errResult).NotTo(HaveOccurred())
 			})
 		})
 	}
@@ -116,7 +116,7 @@ var _ = Describe("Retryable", func() {
 			return innerStoreAdapter.CreateCallCount()
 		}, func() {
 			It("passes the node through", func() {
-				Ω(innerStoreAdapter.CreateArgsForCall(0)).Should(Equal(createdNode))
+				Expect(innerStoreAdapter.CreateArgsForCall(0)).To(Equal(createdNode))
 			})
 		})
 	})
@@ -135,7 +135,7 @@ var _ = Describe("Retryable", func() {
 			return innerStoreAdapter.UpdateCallCount()
 		}, func() {
 			It("passes the node through", func() {
-				Ω(innerStoreAdapter.UpdateArgsForCall(0)).Should(Equal(updatedNode))
+				Expect(innerStoreAdapter.UpdateArgsForCall(0)).To(Equal(updatedNode))
 			})
 		})
 	})
@@ -160,8 +160,8 @@ var _ = Describe("Retryable", func() {
 		}, func() {
 			It("passes the nodes through", func() {
 				oldN, newN := innerStoreAdapter.CompareAndSwapArgsForCall(0)
-				Ω(oldN).Should(Equal(oldNode))
-				Ω(newN).Should(Equal(newNode))
+				Expect(oldN).To(Equal(oldNode))
+				Expect(newN).To(Equal(newNode))
 			})
 		})
 	})
@@ -182,8 +182,8 @@ var _ = Describe("Retryable", func() {
 		}, func() {
 			It("passes the node and index through", func() {
 				index, node := innerStoreAdapter.CompareAndSwapByIndexArgsForCall(0)
-				Ω(index).Should(Equal(uint64(comparedIndex)))
-				Ω(node).Should(Equal(swappedNode))
+				Expect(index).To(Equal(uint64(comparedIndex)))
+				Expect(node).To(Equal(swappedNode))
 			})
 		})
 	})
@@ -202,7 +202,7 @@ var _ = Describe("Retryable", func() {
 			return innerStoreAdapter.SetMultiCallCount()
 		}, func() {
 			It("passes the nodes through", func() {
-				Ω(innerStoreAdapter.SetMultiArgsForCall(0)).Should(Equal(nodes))
+				Expect(innerStoreAdapter.SetMultiArgsForCall(0)).To(Equal(nodes))
 			})
 		})
 	})
@@ -226,11 +226,11 @@ var _ = Describe("Retryable", func() {
 			return innerStoreAdapter.GetCallCount()
 		}, func() {
 			It("passes the key through", func() {
-				Ω(innerStoreAdapter.GetArgsForCall(0)).Should(Equal("getting-key"))
+				Expect(innerStoreAdapter.GetArgsForCall(0)).To(Equal("getting-key"))
 			})
 
 			It("returns the node", func() {
-				Ω(gotNode).Should(Equal(nodeToReturn))
+				Expect(gotNode).To(Equal(nodeToReturn))
 			})
 		})
 	})
@@ -254,11 +254,11 @@ var _ = Describe("Retryable", func() {
 			return innerStoreAdapter.ListRecursivelyCallCount()
 		}, func() {
 			It("passes the key through", func() {
-				Ω(innerStoreAdapter.ListRecursivelyArgsForCall(0)).Should(Equal("listing-key"))
+				Expect(innerStoreAdapter.ListRecursivelyArgsForCall(0)).To(Equal("listing-key"))
 			})
 
 			It("returns the node", func() {
-				Ω(listedNode).Should(Equal(nodeToReturn))
+				Expect(listedNode).To(Equal(nodeToReturn))
 			})
 		})
 	})
@@ -274,7 +274,7 @@ var _ = Describe("Retryable", func() {
 			return innerStoreAdapter.DeleteCallCount()
 		}, func() {
 			It("passes the keys through", func() {
-				Ω(innerStoreAdapter.DeleteArgsForCall(0)).Should(Equal(keysToDelete))
+				Expect(innerStoreAdapter.DeleteArgsForCall(0)).To(Equal(keysToDelete))
 			})
 		})
 	})
@@ -290,7 +290,7 @@ var _ = Describe("Retryable", func() {
 			return innerStoreAdapter.DeleteLeavesCallCount()
 		}, func() {
 			It("passes the keys through", func() {
-				Ω(innerStoreAdapter.DeleteLeavesArgsForCall(0)).Should(Equal(keysToDelete))
+				Expect(innerStoreAdapter.DeleteLeavesArgsForCall(0)).To(Equal(keysToDelete))
 			})
 		})
 	})
@@ -310,7 +310,7 @@ var _ = Describe("Retryable", func() {
 		}, func() {
 			It("passes the node through", func() {
 				nodes := innerStoreAdapter.CompareAndDeleteArgsForCall(0)
-				Ω(nodes).Should(Equal(nodesToCAD))
+				Expect(nodes).To(Equal(nodesToCAD))
 			})
 		})
 	})
@@ -330,7 +330,7 @@ var _ = Describe("Retryable", func() {
 		}, func() {
 			It("passes the node and index through", func() {
 				nodes := innerStoreAdapter.CompareAndDeleteByIndexArgsForCall(0)
-				Ω(nodes).Should(Equal(nodesToCAD))
+				Expect(nodes).To(Equal(nodesToCAD))
 			})
 		})
 	})
@@ -348,8 +348,8 @@ var _ = Describe("Retryable", func() {
 		}, func() {
 			It("passes the keys through", func() {
 				dir, ttl := innerStoreAdapter.UpdateDirTTLArgsForCall(0)
-				Ω(dir).Should(Equal(dirKey))
-				Ω(ttl).Should(Equal(ttlToSet))
+				Expect(dir).To(Equal(dirKey))
+				Expect(ttl).To(Equal(ttlToSet))
 			})
 		})
 	})
