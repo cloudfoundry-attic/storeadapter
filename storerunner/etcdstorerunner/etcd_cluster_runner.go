@@ -102,14 +102,16 @@ func (etcd *ETCDClusterRunner) FastForwardTime(seconds int) {
 }
 
 func (etcd *ETCDClusterRunner) Adapter() storeadapter.StoreAdapter {
-	pool := workpool.NewWorkPool(10)
+	pool, err := workpool.NewWorkPool(10)
+	Ω(err).ShouldNot(HaveOccurred())
 	adapter := etcdstoreadapter.NewETCDStoreAdapter(etcd.NodeURLS(), pool)
 	adapter.Connect()
 	return adapter
 }
 
 func (etcd *ETCDClusterRunner) RetryableAdapter(workPoolSize int) storeadapter.StoreAdapter {
-	pool := workpool.NewWorkPool(workPoolSize)
+	pool, err := workpool.NewWorkPool(workPoolSize)
+	Ω(err).ShouldNot(HaveOccurred())
 
 	adapter := storeadapter.NewRetryable(
 		etcdstoreadapter.NewETCDStoreAdapter(etcd.NodeURLS(), pool),
