@@ -25,14 +25,16 @@ type ETCDClusterRunner struct {
 	etcdProcesses []ifrit.Process
 	running       bool
 	client        *etcdclient.Client
+	ssl           bool
 
 	mutex *sync.RWMutex
 }
 
-func NewETCDClusterRunner(startingPort int, numNodes int) *ETCDClusterRunner {
+func NewETCDClusterRunner(startingPort int, numNodes int, ssl bool) *ETCDClusterRunner {
 	return &ETCDClusterRunner{
 		startingPort: startingPort,
 		numNodes:     numNodes,
+		ssl:          ssl,
 
 		mutex: &sync.RWMutex{},
 	}
@@ -152,6 +154,15 @@ func (etcd *ETCDClusterRunner) start(nuke bool) {
 			log.Fatalf("Detected an ETCD already running on %s", etcd.clientURL(i))
 		}
 
+		var args []string
+		if etcd.ssl {
+			args = []string{
+				"--cert-file=../assets/private.crt",
+				"--key-file=../assets/private.key",
+				//"--client-cert-auth",
+			}
+		}
+
 		os.MkdirAll(etcd.tmpPath(i), 0700)
 		process := ginkgomon.Invoke(ginkgomon.New(ginkgomon.Config{
 			Name:              "etcd_cluster",
@@ -160,14 +171,16 @@ func (etcd *ETCDClusterRunner) start(nuke bool) {
 			StartCheckTimeout: 10 * time.Second,
 			Command: exec.Command(
 				"etcd",
-				"--name", etcd.nodeName(i),
-				"--data-dir", etcd.tmpPath(i),
-				"--listen-client-urls", etcd.clientURL(i),
-				"--listen-peer-urls", etcd.serverURL(i),
-				"--initial-cluster", strings.Join(clusterURLs, ","),
-				"--initial-advertise-peer-urls", etcd.serverURL(i),
-				"--initial-cluster-state", "new",
-				"--advertise-client-urls", etcd.clientURL(i),
+				append([]string{
+					"--name", etcd.nodeName(i),
+					"--data-dir", etcd.tmpPath(i),
+					"--listen-client-urls", etcd.clientURL(i),
+					"--listen-peer-urls", etcd.serverURL(i),
+					"--initial-cluster", strings.Join(clusterURLs, ","),
+					"--initial-advertise-peer-urls", etcd.serverURL(i),
+					"--initial-cluster-state", "new",
+					"--advertise-client-urls", etcd.clientURL(i),
+				}, args...)...,
 			),
 		}))
 
@@ -246,7 +259,7 @@ func (etcd *ETCDClusterRunner) fastForwardTime(etcdNode *etcdclient.Node, second
 }
 
 func (etcd *ETCDClusterRunner) clientURL(index int) string {
-	return fmt.Sprintf("http://127.0.0.1:%d", etcd.port(index))
+	return fmt.Sprintf("https://127.0.0.1:%d", etcd.port(index))
 }
 
 func (etcd *ETCDClusterRunner) serverURL(index int) string {

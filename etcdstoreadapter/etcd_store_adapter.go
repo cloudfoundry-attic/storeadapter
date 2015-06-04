@@ -21,6 +21,19 @@ type ETCDStoreAdapter struct {
 
 func NewETCDStoreAdapter(urls []string, workPool *workpool.WorkPool) *ETCDStoreAdapter {
 	client := etcd.NewClient(urls)
+	return newAdapter(client, workPool)
+}
+
+func NewTLSClient(urls []string, cert, key, caCert string, workPool *workpool.WorkPool) (*ETCDStoreAdapter, error) {
+	client, err := etcd.NewTLSClient(urls, cert, key, caCert)
+	if err != nil {
+		return nil, err
+	}
+
+	return newAdapter(client, workPool), nil
+}
+
+func newAdapter(client *etcd.Client, workPool *workpool.WorkPool) *ETCDStoreAdapter {
 	client.SetConsistency(etcd.STRONG_CONSISTENCY)
 
 	return &ETCDStoreAdapter{
