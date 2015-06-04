@@ -1,8 +1,11 @@
 package etcdstoreadapter
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
 	"sync"
 	"time"
 
@@ -21,6 +24,48 @@ type ETCDStoreAdapter struct {
 
 func NewETCDStoreAdapter(urls []string, workPool *workpool.WorkPool) *ETCDStoreAdapter {
 	client := etcd.NewClient(urls)
+	return newAdapter(client, workPool)
+}
+
+func NewTLSClient(urls []string, cert, key, caCert string, workPool *workpool.WorkPool) (*ETCDStoreAdapter, error) {
+	client, err := NewETCDTLSClient(urls, cert, key, caCert)
+	if err != nil {
+		return nil, err
+	}
+
+	return newAdapter(client, workPool), nil
+}
+
+func NewETCDTLSClient(urls []string, certFile, keyFile, caCertFile string) (*etcd.Client, error) {
+	client := etcd.NewClient(urls)
+	tlsCert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, err
+	}
+
+	tlsConfig := &tls.Config{
+		Certificates:       []tls.Certificate{tlsCert},
+		ServerName:         "etcdserver",
+		InsecureSkipVerify: false,
+	}
+
+	tr := &http.Transport{
+		TLSClientConfig: tlsConfig,
+		Dial: (&net.Dialer{
+			Timeout:   time.Second,
+			KeepAlive: time.Second,
+		}).Dial,
+	}
+	client.SetTransport(tr)
+	err = client.AddRootCA(caCertFile)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
+func newAdapter(client *etcd.Client, workPool *workpool.WorkPool) *ETCDStoreAdapter {
 	client.SetConsistency(etcd.STRONG_CONSISTENCY)
 
 	return &ETCDStoreAdapter{

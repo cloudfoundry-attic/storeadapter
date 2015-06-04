@@ -19,20 +19,28 @@ import (
 	"github.com/tedsuo/ifrit/ginkgomon"
 )
 
+type SSLConfig struct {
+	CertFile string
+	KeyFile  string
+	CAFile   string
+}
+
 type ETCDClusterRunner struct {
 	startingPort  int
 	numNodes      int
 	etcdProcesses []ifrit.Process
 	running       bool
 	client        *etcdclient.Client
+	serverSSL     *SSLConfig
 
 	mutex *sync.RWMutex
 }
 
-func NewETCDClusterRunner(startingPort int, numNodes int) *ETCDClusterRunner {
+func NewETCDClusterRunner(startingPort int, numNodes int, serverSSL *SSLConfig) *ETCDClusterRunner {
 	return &ETCDClusterRunner{
 		startingPort: startingPort,
 		numNodes:     numNodes,
+		serverSSL:    serverSSL,
 
 		mutex: &sync.RWMutex{},
 	}
@@ -101,20 +109,28 @@ func (etcd *ETCDClusterRunner) FastForwardTime(seconds int) {
 	}
 }
 
-func (etcd *ETCDClusterRunner) Adapter() storeadapter.StoreAdapter {
+func (etcd *ETCDClusterRunner) newAdapter(clientSSL *SSLConfig) storeadapter.StoreAdapter {
 	pool, err := workpool.NewWorkPool(10)
 	Expect(err).NotTo(HaveOccurred())
-	adapter := etcdstoreadapter.NewETCDStoreAdapter(etcd.NodeURLS(), pool)
+	var adapter storeadapter.StoreAdapter
+	if clientSSL == nil {
+		adapter = etcdstoreadapter.NewETCDStoreAdapter(etcd.NodeURLS(), pool)
+	} else {
+		adapter, err = etcdstoreadapter.NewTLSClient(etcd.NodeURLS(), clientSSL.CertFile, clientSSL.KeyFile, clientSSL.CAFile, pool)
+		Expect(err).NotTo(HaveOccurred())
+	}
+	return adapter
+}
+
+func (etcd *ETCDClusterRunner) Adapter(clientSSL *SSLConfig) storeadapter.StoreAdapter {
+	adapter := etcd.newAdapter(clientSSL)
 	adapter.Connect()
 	return adapter
 }
 
-func (etcd *ETCDClusterRunner) RetryableAdapter(workPoolSize int) storeadapter.StoreAdapter {
-	pool, err := workpool.NewWorkPool(workPoolSize)
-	Expect(err).NotTo(HaveOccurred())
-
+func (etcd *ETCDClusterRunner) RetryableAdapter(workPoolSize int, clientSSL *SSLConfig) storeadapter.StoreAdapter {
 	adapter := storeadapter.NewRetryable(
-		etcdstoreadapter.NewETCDStoreAdapter(etcd.NodeURLS(), pool),
+		etcd.newAdapter(clientSSL),
 		clock.NewClock(),
 		storeadapter.ExponentialRetryPolicy{},
 	)
@@ -152,6 +168,17 @@ func (etcd *ETCDClusterRunner) start(nuke bool) {
 			log.Fatalf("Detected an ETCD already running on %s", etcd.clientURL(i))
 		}
 
+		var args []string
+		if etcd.serverSSL != nil {
+			args = append(args,
+				"--cert-file="+etcd.serverSSL.CertFile,
+				"--key-file="+etcd.serverSSL.KeyFile,
+			)
+			if etcd.serverSSL.CAFile != "" {
+				args = append(args, "--ca-file="+etcd.serverSSL.CAFile)
+			}
+		}
+
 		os.MkdirAll(etcd.tmpPath(i), 0700)
 		process := ginkgomon.Invoke(ginkgomon.New(ginkgomon.Config{
 			Name:              "etcd_cluster",
@@ -160,14 +187,16 @@ func (etcd *ETCDClusterRunner) start(nuke bool) {
 			StartCheckTimeout: 10 * time.Second,
 			Command: exec.Command(
 				"etcd",
-				"--name", etcd.nodeName(i),
-				"--data-dir", etcd.tmpPath(i),
-				"--listen-client-urls", etcd.clientURL(i),
-				"--listen-peer-urls", etcd.serverURL(i),
-				"--initial-cluster", strings.Join(clusterURLs, ","),
-				"--initial-advertise-peer-urls", etcd.serverURL(i),
-				"--initial-cluster-state", "new",
-				"--advertise-client-urls", etcd.clientURL(i),
+				append([]string{
+					"--name", etcd.nodeName(i),
+					"--data-dir", etcd.tmpPath(i),
+					"--listen-client-urls", etcd.clientURL(i),
+					"--listen-peer-urls", etcd.serverURL(i),
+					"--initial-cluster", strings.Join(clusterURLs, ","),
+					"--initial-advertise-peer-urls", etcd.serverURL(i),
+					"--initial-cluster-state", "new",
+					"--advertise-client-urls", etcd.clientURL(i),
+				}, args...)...,
 			),
 		}))
 
@@ -183,7 +212,21 @@ func (etcd *ETCDClusterRunner) start(nuke bool) {
 		}, 10, 0.05).Should(BeTrue(), "Expected ETCD to be up and running")
 	}
 
-	etcd.client = etcdclient.NewClient(etcd.NodeURLS())
+	var client *etcdclient.Client
+	if etcd.serverSSL == nil {
+		client = etcdclient.NewClient(etcd.NodeURLS())
+	} else {
+		var err error
+		client, err = etcdstoreadapter.NewETCDTLSClient(
+			etcd.NodeURLS(),
+			etcd.serverSSL.CertFile,
+			etcd.serverSSL.KeyFile,
+			etcd.serverSSL.CAFile,
+		)
+		Expect(err).NotTo(HaveOccurred())
+	}
+	etcd.client = client
+
 	etcd.running = true
 }
 
@@ -222,7 +265,20 @@ func (etcd *ETCDClusterRunner) markAsStopped() {
 }
 
 func (etcd *ETCDClusterRunner) detectRunningEtcd(index int) bool {
-	client := etcdclient.NewClient([]string{})
+	var client *etcdclient.Client
+
+	if etcd.serverSSL == nil {
+		client = etcdclient.NewClient([]string{})
+	} else {
+		var err error
+		client, err = etcdstoreadapter.NewETCDTLSClient(
+			[]string{etcd.clientURL(index)},
+			etcd.serverSSL.CertFile,
+			etcd.serverSSL.KeyFile,
+			etcd.serverSSL.CAFile,
+		)
+		Expect(err).NotTo(HaveOccurred())
+	}
 	return client.SetCluster([]string{etcd.clientURL(index)})
 }
 
@@ -246,7 +302,11 @@ func (etcd *ETCDClusterRunner) fastForwardTime(etcdNode *etcdclient.Node, second
 }
 
 func (etcd *ETCDClusterRunner) clientURL(index int) string {
-	return fmt.Sprintf("http://127.0.0.1:%d", etcd.port(index))
+	scheme := "http"
+	if etcd.serverSSL != nil {
+		scheme = "https"
+	}
+	return fmt.Sprintf("%s://127.0.0.1:%d", scheme, etcd.port(index))
 }
 
 func (etcd *ETCDClusterRunner) serverURL(index int) string {
