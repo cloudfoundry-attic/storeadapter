@@ -33,10 +33,18 @@ var _ = Describe("ETCD Store Adapter", func() {
 			Value: []byte("burgers"),
 		}
 
+		etcdOptions := &ETCDOptions{
+			CertFile:    "../assets/client.crt",
+			KeyFile:     "../assets/client.key",
+			CAFile:      "../assets/ca.crt",
+			ClusterUrls: etcdRunner.NodeURLS(),
+			IsSSL:       true,
+		}
+
 		workPool, err := workpool.NewWorkPool(10)
 		Expect(err).NotTo(HaveOccurred())
-
-		adapter = NewETCDStoreAdapter(etcdRunner.NodeURLS(), workPool)
+		adapter, err = New(etcdOptions, workPool)
+		Expect(err).NotTo(HaveOccurred())
 		err = adapter.Connect()
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -51,7 +59,12 @@ var _ = Describe("ETCD Store Adapter", func() {
 				workPool, err := workpool.NewWorkPool(10)
 				Expect(err).NotTo(HaveOccurred())
 
-				adapter = NewETCDStoreAdapter([]string{"http://127.0.0.1:6000"}, workPool)
+				adapter, err = New(
+					&ETCDOptions{
+						ClusterUrls: []string{"http://127.0.0.1:6000"},
+						IsSSL:       false},
+					workPool)
+				Expect(err).NotTo(HaveOccurred())
 				err = adapter.Connect()
 				Expect(err).To(HaveOccurred())
 			})

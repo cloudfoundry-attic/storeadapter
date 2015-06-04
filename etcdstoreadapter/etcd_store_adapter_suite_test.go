@@ -29,7 +29,12 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	return nil
 }, func(encodedBuiltArtifacts []byte) {
 	etcdPort := 5000 + (config.GinkgoConfig.ParallelNode)*10
-	etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1)
+	etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1, &etcdstorerunner.SSLConfig{
+		CertFile: "../assets/server.crt",
+		KeyFile:  "../assets/server.key",
+		CAFile:   "../assets/ca.crt",
+	})
+
 	etcdRunner.Start()
 })
 
