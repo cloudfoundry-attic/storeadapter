@@ -19,22 +19,28 @@ import (
 	"github.com/tedsuo/ifrit/ginkgomon"
 )
 
+type SSLConfig struct {
+	CertFile string
+	KeyFile  string
+	CAFile   string
+}
+
 type ETCDClusterRunner struct {
 	startingPort  int
 	numNodes      int
 	etcdProcesses []ifrit.Process
 	running       bool
 	client        *etcdclient.Client
-	ssl           bool
+	clientSSL     *SSLConfig
 
 	mutex *sync.RWMutex
 }
 
-func NewETCDClusterRunner(startingPort int, numNodes int, ssl bool) *ETCDClusterRunner {
+func NewETCDClusterRunner(startingPort int, numNodes int, clientSSL *SSLConfig) *ETCDClusterRunner {
 	return &ETCDClusterRunner{
 		startingPort: startingPort,
 		numNodes:     numNodes,
-		ssl:          ssl,
+		clientSSL:    clientSSL,
 
 		mutex: &sync.RWMutex{},
 	}
@@ -155,11 +161,13 @@ func (etcd *ETCDClusterRunner) start(nuke bool) {
 		}
 
 		var args []string
-		if etcd.ssl {
-			args = []string{
-				"--cert-file=../assets/private.crt",
-				"--key-file=../assets/private.key",
-				//"--client-cert-auth",
+		if etcd.clientSSL != nil {
+			args = append(args,
+				"--cert-file="+etcd.clientSSL.CertFile,
+				"--key-file="+etcd.clientSSL.KeyFile,
+			)
+			if etcd.clientSSL.CAFile != "" {
+				args = append(args, "--ca-file="+etcd.clientSSL.CAFile)
 			}
 		}
 
@@ -259,7 +267,11 @@ func (etcd *ETCDClusterRunner) fastForwardTime(etcdNode *etcdclient.Node, second
 }
 
 func (etcd *ETCDClusterRunner) clientURL(index int) string {
-	return fmt.Sprintf("https://127.0.0.1:%d", etcd.port(index))
+	scheme := "http"
+	if etcd.clientSSL != nil {
+		scheme = "https"
+	}
+	return fmt.Sprintf("%s://127.0.0.1:%d", scheme, etcd.port(index))
 }
 
 func (etcd *ETCDClusterRunner) serverURL(index int) string {
