@@ -1,0 +1,81 @@
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number: 13 (0xd)
+    Signature Algorithm: sha256WithRSAEncryption
+        Issuer: C=US, ST=CA, O=CloudFoundry, CN=xip.io
+        Validity
+            Not Before: Jun  5 23:28:20 2015 GMT
+            Not After : Apr 13 23:28:20 2025 GMT
+        Subject: C=US, ST=California, L=CloudFoundry, CN=doesntmatter
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                Public-Key: (2048 bit)
+                Modulus:
+                    00:b3:15:9a:8f:ef:ab:87:17:71:a4:ce:37:43:d3:
+                    8d:b4:14:c7:6d:ca:90:45:0b:c2:f4:b3:1c:a7:ef:
+                    7d:8e:f9:d6:99:f0:b0:8d:b3:f6:ce:17:c6:6a:67:
+                    6c:a6:75:a5:b9:bc:6b:5d:8f:03:9b:f9:1e:07:dd:
+                    ff:47:ba:f5:9f:07:64:65:27:b3:15:f7:ab:9e:72:
+                    71:35:96:56:c4:c4:35:96:50:0d:dd:25:cf:ea:de:
+                    48:a4:88:6c:f2:c7:1d:13:92:e9:bd:9f:ad:06:06:
+                    11:2f:c2:1b:0d:5e:7f:3e:23:ea:b6:f4:81:8b:a1:
+                    68:95:af:1d:ea:09:99:b5:49:a4:b7:fa:ed:f5:d2:
+                    9c:80:dd:e5:df:e5:2e:56:39:3d:13:a4:72:31:19:
+                    bc:ea:d2:3a:e4:c9:f1:26:3c:ec:2c:6a:15:f8:3e:
+                    25:08:5f:dd:45:74:cb:d9:41:54:5b:82:7d:a8:48:
+                    62:fb:15:ae:99:79:80:96:18:64:e1:da:16:e8:0d:
+                    db:f8:9a:3f:f4:c5:d1:28:bc:41:c1:2a:67:e9:d4:
+                    9a:2e:97:dd:18:98:cb:c2:13:a5:d6:1a:91:ac:14:
+                    7f:61:67:b1:8a:d5:cf:df:19:a2:f4:55:61:1f:d7:
+                    af:83:77:53:c6:cf:39:9d:94:9d:42:75:5f:3a:74:
+                    30:9b
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Basic Constraints: 
+                CA:FALSE
+            Netscape Cert Type: 
+                SSL Client
+            X509v3 Key Usage: 
+                Digital Signature, Key Encipherment
+            X509v3 Extended Key Usage: 
+                TLS Web Client Authentication
+            Netscape Comment: 
+                OpenSSL Certificate for SSL Client
+    Signature Algorithm: sha256WithRSAEncryption
+         0f:1f:ca:6f:2b:7a:c6:31:ad:0e:e3:1a:7b:1d:54:28:16:c0:
+         05:48:24:09:24:f1:46:bf:b5:a9:76:93:49:e5:45:df:25:e8:
+         e8:8c:db:7e:94:93:7e:8c:1a:ab:f4:7c:cc:38:4a:10:0c:c4:
+         3a:ed:78:ad:ba:4b:ac:40:bd:5f:d3:60:f4:ee:a4:04:2b:1e:
+         b5:04:58:1f:37:fc:39:57:51:25:5d:db:55:5c:38:ab:ea:3d:
+         ee:5e:f0:59:a9:c4:b2:08:b4:42:d5:1e:e2:9c:12:02:13:d6:
+         7b:a8:c7:b3:3c:42:24:8f:79:ee:fd:d4:68:75:f1:62:ae:5e:
+         ee:7c:eb:3a:69:0e:16:51:b2:f8:28:70:10:41:ad:bc:ea:dc:
+         d8:5d:56:8e:07:d9:ea:4d:5f:bc:bf:8f:c2:a9:f1:af:d5:9b:
+         a9:67:b4:12:6f:27:85:fb:fa:a4:13:5b:f4:ea:b3:91:60:3a:
+         a9:67:53:f6:f2:df:58:fe:cc:e3:a2:bb:2f:bf:f9:35:45:9d:
+         eb:ad:a7:aa:de:f7:90:34:16:94:6c:a7:fb:3a:55:bc:29:40:
+         d6:fc:7e:22:d6:99:12:4a:f1:50:f6:62:eb:2d:cb:81:3e:56:
+         b3:ff:1d:ec:6f:28:ff:9c:a0:c2:21:83:ce:bf:f8:28:8f:8f:
+         33:4d:30:c5
+-----BEGIN CERTIFICATE-----
+MIIDgjCCAmqgAwIBAgIBDTANBgkqhkiG9w0BAQsFADBCMQswCQYDVQQGEwJVUzEL
+MAkGA1UECAwCQ0ExFTATBgNVBAoMDENsb3VkRm91bmRyeTEPMA0GA1UEAwwGeGlw
+LmlvMB4XDTE1MDYwNTIzMjgyMFoXDTI1MDQxMzIzMjgyMFowUDELMAkGA1UEBhMC
+VVMxEzARBgNVBAgMCkNhbGlmb3JuaWExFTATBgNVBAcMDENsb3VkRm91bmRyeTEV
+MBMGA1UEAwwMZG9lc250bWF0dGVyMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB
+CgKCAQEAsxWaj++rhxdxpM43Q9ONtBTHbcqQRQvC9LMcp+99jvnWmfCwjbP2zhfG
+amdspnWlubxrXY8Dm/keB93/R7r1nwdkZSezFfernnJxNZZWxMQ1llAN3SXP6t5I
+pIhs8scdE5LpvZ+tBgYRL8IbDV5/PiPqtvSBi6Fola8d6gmZtUmkt/rt9dKcgN3l
+3+UuVjk9E6RyMRm86tI65MnxJjzsLGoV+D4lCF/dRXTL2UFUW4J9qEhi+xWumXmA
+lhhk4doW6A3b+Jo/9MXRKLxBwSpn6dSaLpfdGJjLwhOl1hqRrBR/YWexitXP3xmi
+9FVhH9evg3dTxs85nZSdQnVfOnQwmwIDAQABo3UwczAJBgNVHRMEAjAAMBEGCWCG
+SAGG+EIBAQQEAwIHgDALBgNVHQ8EBAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwIw
+MQYJYIZIAYb4QgENBCQWIk9wZW5TU0wgQ2VydGlmaWNhdGUgZm9yIFNTTCBDbGll
+bnQwDQYJKoZIhvcNAQELBQADggEBAA8fym8resYxrQ7jGnsdVCgWwAVIJAkk8Ua/
+tal2k0nlRd8l6OiM236Uk36MGqv0fMw4ShAMxDrteK26S6xAvV/TYPTupAQrHrUE
+WB83/DlXUSVd21VcOKvqPe5e8FmpxLIItELVHuKcEgIT1nuox7M8QiSPee791Gh1
+8WKuXu586zppDhZRsvgocBBBrbzq3NhdVo4H2epNX7y/j8Kp8a/Vm6lntBJvJ4X7
++qQTW/Tqs5FgOqlnU/by31j+zOOiuy+/+TVFneutp6re95A0FpRsp/s6VbwpQNb8
+fiLWmRJK8VD2Yusty4E+VrP/HexvKP+coMIhg86/+CiPjzNNMMU=
+-----END CERTIFICATE-----
