@@ -35,7 +35,7 @@ var _ = Describe("ETCD Store Adapter", func() {
 
 		workPool, err := workpool.NewWorkPool(10)
 		Expect(err).NotTo(HaveOccurred())
-		adapter, err = NewTLSClient(etcdRunner.NodeURLS(), "../assets/client.crt", "../assets/client.key", "", workPool)
+		adapter, err = NewTLSClient(etcdRunner.NodeURLS(), "../assets/client.crt", "../assets/client.key", "../assets/ca.crt", workPool)
 		Expect(err).NotTo(HaveOccurred())
 		err = adapter.Connect()
 		Expect(err).NotTo(HaveOccurred())

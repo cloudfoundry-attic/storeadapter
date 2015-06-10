@@ -32,8 +32,9 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	etcdRunner = etcdstorerunner.NewETCDClusterRunner(etcdPort, 1, &etcdstorerunner.SSLConfig{
 		CertFile: "../assets/server.crt",
 		KeyFile:  "../assets/server.key",
-		//CAFile:   "../assets/ca.crt",
+		CAFile:   "../assets/ca.crt",
 	})
+
 	etcdRunner.Start()
 })
 

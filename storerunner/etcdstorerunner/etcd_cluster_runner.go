@@ -204,7 +204,16 @@ func (etcd *ETCDClusterRunner) start(nuke bool) {
 		}, 10, 0.05).Should(BeTrue(), "Expected ETCD to be up and running")
 	}
 
-	etcd.client = etcdclient.NewClient(etcd.NodeURLS())
+	var client *etcdclient.Client
+	if etcd.clientSSL == nil {
+		client = etcdclient.NewClient(etcd.NodeURLS())
+	} else {
+		var err error
+		client, err = etcdstoreadapter.NewETCDTLSClient(etcd.NodeURLS(), etcd.clientSSL.CertFile, etcd.clientSSL.KeyFile, etcd.clientSSL.CAFile)
+		Expect(err).NotTo(HaveOccurred())
+	}
+	etcd.client = client
+
 	etcd.running = true
 }
 
@@ -243,7 +252,15 @@ func (etcd *ETCDClusterRunner) markAsStopped() {
 }
 
 func (etcd *ETCDClusterRunner) detectRunningEtcd(index int) bool {
-	client := etcdclient.NewClient([]string{})
+	var client *etcdclient.Client
+
+	if etcd.clientSSL == nil {
+		client = etcdclient.NewClient([]string{})
+	} else {
+		var err error
+		client, err = etcdstoreadapter.NewETCDTLSClient([]string{etcd.clientURL(index)}, etcd.clientSSL.CertFile, etcd.clientSSL.KeyFile, etcd.clientSSL.CAFile)
+		Expect(err).NotTo(HaveOccurred())
+	}
 	return client.SetCluster([]string{etcd.clientURL(index)})
 }
 
