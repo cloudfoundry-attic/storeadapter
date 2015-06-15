@@ -96,6 +96,9 @@ func (adapter *FakeStoreAdapter) Connect() error {
 }
 
 func (adapter *FakeStoreAdapter) Disconnect() error {
+	adapter.Lock()
+	defer adapter.Unlock()
+
 	if !adapter.DidDisconnect {
 		close(adapter.eventChannel)
 		if adapter.WatchErrChannel != nil {
@@ -110,6 +113,8 @@ func (adapter *FakeStoreAdapter) Disconnect() error {
 func (adapter *FakeStoreAdapter) sendEvent(prevNode *storeadapter.StoreNode, node *storeadapter.StoreNode, eventType storeadapter.EventType) {
 	if adapter.sendEvents {
 		go func() {
+			adapter.Lock()
+			defer adapter.Unlock()
 			adapter.eventChannel <- storeadapter.WatchEvent{
 				Type:     eventType,
 				Node:     node,
@@ -383,6 +388,8 @@ func (adapter *FakeStoreAdapter) CompareAndSwapByIndex(oldNodeIndex uint64, newN
 }
 
 func (adapter *FakeStoreAdapter) Watch(key string) (events <-chan storeadapter.WatchEvent, stop chan<- bool, errors <-chan error) {
+	adapter.Lock()
+	defer adapter.Unlock()
 	adapter.sendEvents = true
 	adapter.WatchErrChannel = make(chan error, 1)
 
