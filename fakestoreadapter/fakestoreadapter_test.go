@@ -2,6 +2,7 @@ package fakestoreadapter_test
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/cloudfoundry/storeadapter"
 	. "github.com/cloudfoundry/storeadapter/fakestoreadapter"
@@ -58,6 +59,29 @@ var _ = Describe("Fakestoreadapter", func() {
 		adapterInterface = adapter
 
 		Expect(adapterInterface)
+	})
+
+	Describe("Disconnecting", func() {
+		It("should set DidDisconnect to true", func() {
+			Expect(adapter.DidDisconnect).To(BeFalse())
+
+			adapter.Disconnect()
+
+			Expect(adapter.DidDisconnect).To(BeTrue())
+		})
+
+		It("should close eventChannel and WatchErrChannel", func() {
+			events, _, errors := adapter.Watch("key")
+
+			adapter.Disconnect()
+			Expect(events).To(BeClosed())
+			Expect(errors).To(BeClosed())
+		})
+
+		It("should not panic when called multiple times", func() {
+			adapter.Disconnect()
+			Expect(func() { adapter.Disconnect() }).ToNot(Panic())
+		})
 	})
 
 	Describe("Creating", func() {
@@ -311,6 +335,30 @@ var _ = Describe("Fakestoreadapter", func() {
 				_, err = adapter.Get("/menu")
 				Expect(err).To(Equal(storeadapter.ErrorKeyNotFound))
 			})
+
+			It("should send a delete event", func() {
+				events, _, _ := adapter.Watch("/menu")
+
+				adapter.Delete("/menu")
+				var event storeadapter.WatchEvent
+				Eventually(events).Should(Receive(&event))
+				Expect(event.Type).To(Equal(storeadapter.DeleteEvent))
+			})
+
+			It("should recursively delete keys in the directory", func() {
+				events, _, _ := adapter.Watch("/menu")
+
+				adapter.Delete("/menu")
+
+				_, err := adapter.Get("/menu/breakfast")
+				Expect(err).To(Equal(storeadapter.ErrorKeyNotFound))
+
+				// /menu, /menu/breakfast, /menu/lunch, /menu/dinner, /menu/dinner/first, /menu/dinner/second
+				for i := 0; i < 6; i++ {
+					Eventually(events).Should(Receive(), fmt.Sprintf("Received %d Delete event(s), expected 6", i))
+				}
+				Expect(events).To(BeEmpty())
+			})
 		})
 
 		Context("when the key matches the error injector", func() {
@@ -383,6 +431,25 @@ var _ = Describe("Fakestoreadapter", func() {
 				_, err = adapter.Get("/foo")
 				Expect(err).To(Equal(storeadapter.ErrorKeyNotFound))
 			})
+		})
+	})
+
+	Describe("Updating Dir TTL", func() {
+		It("should return a NotADirectory error if the key is not a directory", func() {
+			err := adapter.UpdateDirTTL("/menu/breakfast", 1)
+			Expect(err).To(Equal(storeadapter.ErrorNodeIsNotDirectory))
+		})
+
+		It("should not return an error if the directory exists", func() {
+			err := adapter.UpdateDirTTL("/menu", 1)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should delete the key after the timeout", func() {
+			adapter.UpdateDirTTL("/menu", 1)
+			getErr := func() error { _, err := adapter.ListRecursively("/menu"); return err }
+			Consistently(getErr, 0.9).Should(Succeed())
+			Eventually(getErr, 0.2).Should(Equal(storeadapter.ErrorKeyNotFound))
 		})
 	})
 
