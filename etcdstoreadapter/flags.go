@@ -35,19 +35,19 @@ func AddFlags(flagSet *flag.FlagSet) *ETCDFlags {
 
 	flagSet.StringVar(
 		&flags.certFile,
-		"certFile",
+		"etcdCertFile",
 		"",
 		"Location of the client certificate for mutual auth",
 	)
 	flagSet.StringVar(
 		&flags.keyFile,
-		"keyFile",
+		"etcdKeyFile",
 		"",
 		"Location of the client key for mutual auth",
 	)
 	flagSet.StringVar(
 		&flags.caFile,
-		"caFile",
+		"etcdCaFile",
 		"",
 		"Location of the CA certificate for mutual auth",
 	)

@@ -21,9 +21,9 @@ var _ = Describe("Flags", func() {
 			httpFlagSet = flag.NewFlagSet("http", flag.ExitOnError)
 			httpFlags = AddFlags(httpFlagSet)
 			sslCommandLine = []string{
-				"-certFile", "../assets/client.crt",
-				"-keyFile", "../assets/client.key",
-				"-caFile", "../assets/ca.crt",
+				"-etcdCertFile", "../assets/client.crt",
+				"-etcdKeyFile", "../assets/client.key",
+				"-etcdCaFile", "../assets/ca.crt",
 				"-etcdCluster", "https://mycluster1, https://mycluster2:435",
 			}
 			httpCommandLine = []string{
@@ -92,7 +92,7 @@ var _ = Describe("Flags", func() {
 
 			Context("when a cert file is not provided", func() {
 				BeforeEach(func() {
-					sslCommandLine = append(sslCommandLine, "-certFile", "")
+					sslCommandLine = append(sslCommandLine, "-etcdCertFile", "")
 				})
 
 				It("should fail", func() {
@@ -103,7 +103,7 @@ var _ = Describe("Flags", func() {
 
 			Context("when a key file is not provided", func() {
 				BeforeEach(func() {
-					sslCommandLine = append(sslCommandLine, "-keyFile", "")
+					sslCommandLine = append(sslCommandLine, "-etcdKeyFile", "")
 				})
 
 				It("should fail", func() {
@@ -114,7 +114,7 @@ var _ = Describe("Flags", func() {
 
 			Context("when a CA cert file is not provided", func() {
 				BeforeEach(func() {
-					sslCommandLine = append(sslCommandLine, "-caFile", "")
+					sslCommandLine = append(sslCommandLine, "-etcdCaFile", "")
 				})
 
 				It("should succeed", func() {
@@ -142,9 +142,9 @@ var _ = Describe("Flags", func() {
 			Context("when ssl configuration is provided", func() {
 				BeforeEach(func() {
 					httpCommandLine = append(httpCommandLine,
-						"-certFile", "cert",
-						"-keyFile", "key",
-						"-caFile", "ca",
+						"-etcdCertFile", "cert",
+						"-etcdKeyFile", "key",
+						"-etcdCaFile", "ca",
 					)
 				})
 
