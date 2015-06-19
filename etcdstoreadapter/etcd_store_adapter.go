@@ -53,7 +53,6 @@ func NewETCDTLSClient(urls []string, certFile, keyFile, caCertFile string) (*etc
 
 	tlsConfig := &tls.Config{
 		Certificates:       []tls.Certificate{tlsCert},
-		ServerName:         "etcdserver",
 		InsecureSkipVerify: false,
 	}
 
