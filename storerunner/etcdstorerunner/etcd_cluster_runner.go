@@ -46,6 +46,10 @@ func NewETCDClusterRunner(startingPort int, numNodes int, serverSSL *SSLConfig) 
 	}
 }
 
+func (etcd *ETCDClusterRunner) Client() *etcdclient.Client {
+	return etcd.client
+}
+
 func (etcd *ETCDClusterRunner) Start() {
 	etcd.start(true)
 }
