@@ -101,6 +101,28 @@ func (etcd *ETCDClusterRunner) Reset() {
 	}
 }
 
+func (etcd *ETCDClusterRunner) ResetAllBut(roots ...string) {
+	etcd.mutex.RLock()
+	running := etcd.running
+	etcd.mutex.RUnlock()
+
+	rootMap := map[string]*struct{}{}
+	for _, root := range roots {
+		rootMap[root] = &struct{}{}
+	}
+
+	if running {
+		response, err := etcd.client.Get("/", false, false)
+		if err == nil {
+			for _, doomed := range response.Node.Nodes {
+				if rootMap[doomed.Key] == nil {
+					etcd.client.Delete(doomed.Key, true)
+				}
+			}
+		}
+	}
+}
+
 func (etcd *ETCDClusterRunner) FastForwardTime(seconds int) {
 	etcd.mutex.RLock()
 	running := etcd.running
