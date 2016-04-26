@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-sql-driver/mysql"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -65,6 +65,14 @@ func (m *MySQLRunner) Reset() {
 	}
 	for _, query := range truncateTablesSQL {
 		result, err := m.db.Exec(query)
+		switch err := err.(type) {
+		case *mysql.MySQLError:
+			if err.Number == 1146 {
+				// missing table error, it's fine because we're trying to truncate it
+				continue
+			}
+		}
+
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.RowsAffected()).To(BeEquivalentTo(0))
 	}
