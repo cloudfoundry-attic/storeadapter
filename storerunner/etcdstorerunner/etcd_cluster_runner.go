@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
+	"code.cloudfoundry.org/clock"
 	"github.com/cloudfoundry/gunk/workpool"
 	"github.com/cloudfoundry/storeadapter"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	etcdclient "github.com/coreos/go-etcd/etcd"
 	. "github.com/onsi/gomega"
-	"github.com/pivotal-golang/clock"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/ginkgomon"
 )
