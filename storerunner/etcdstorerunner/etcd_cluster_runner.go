@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/clock"
-	"github.com/cloudfoundry/gunk/workpool"
+	"code.cloudfoundry.org/workpool"
 	"github.com/cloudfoundry/storeadapter"
 	"github.com/cloudfoundry/storeadapter/etcdstoreadapter"
 	etcdclient "github.com/coreos/go-etcd/etcd"

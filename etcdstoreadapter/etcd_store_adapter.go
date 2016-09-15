@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudfoundry/gunk/workpool"
+	"code.cloudfoundry.org/workpool"
 	"github.com/cloudfoundry/storeadapter"
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/nu7hatch/gouuid"
