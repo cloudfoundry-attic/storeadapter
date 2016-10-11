@@ -119,15 +119,15 @@ func (adapter *ETCDStoreAdapter) etcdErrorCode(err error) int {
 func (adapter *ETCDStoreAdapter) convertError(err error) error {
 	switch adapter.etcdErrorCode(err) {
 	case 501:
-		return storeadapter.ErrorTimeout
+		return storeadapter.NewError(err, storeadapter.ErrorTimeout)
 	case 100:
-		return storeadapter.ErrorKeyNotFound
+		return storeadapter.NewError(err, storeadapter.ErrorKeyNotFound)
 	case 102:
-		return storeadapter.ErrorNodeIsDirectory
+		return storeadapter.NewError(err, storeadapter.ErrorNodeIsDirectory)
 	case 105:
-		return storeadapter.ErrorKeyExists
+		return storeadapter.NewError(err, storeadapter.ErrorKeyExists)
 	case 101:
-		return storeadapter.ErrorKeyComparisonFailed
+		return storeadapter.NewError(err, storeadapter.ErrorKeyComparisonFailed)
 	}
 
 	return err
@@ -175,7 +175,7 @@ func (adapter *ETCDStoreAdapter) Get(key string) (storeadapter.StoreNode, error)
 	}
 
 	if response.Node.Dir {
-		return storeadapter.StoreNode{}, storeadapter.ErrorNodeIsDirectory
+		return storeadapter.StoreNode{}, storeadapter.NewError(errors.New(storeadapter.ErrorNodeIsDirectoryDescription), storeadapter.ErrorNodeIsDirectory)
 	}
 
 	return storeadapter.StoreNode{
@@ -205,7 +205,7 @@ func (adapter *ETCDStoreAdapter) ListRecursively(key string) (storeadapter.Store
 	}
 
 	if !response.Node.Dir {
-		return storeadapter.StoreNode{}, storeadapter.ErrorNodeIsNotDirectory
+		return storeadapter.StoreNode{}, storeadapter.NewError(errors.New(storeadapter.ErrorNodeIsDirectoryDescription), storeadapter.ErrorNodeIsNotDirectory)
 	}
 
 	if len(response.Node.Nodes) == 0 {
@@ -380,7 +380,7 @@ func (adapter *ETCDStoreAdapter) CompareAndDeleteByIndex(nodes ...storeadapter.S
 func (adapter *ETCDStoreAdapter) UpdateDirTTL(key string, ttl uint64) error {
 	response, err := adapter.Get(key)
 	if err == nil && response.Dir == false {
-		return storeadapter.ErrorNodeIsNotDirectory
+		return storeadapter.NewError(errors.New(storeadapter.ErrorNodeIsDirectoryDescription), storeadapter.ErrorNodeIsDirectory)
 	}
 
 	results := make(chan error, 1)
@@ -525,7 +525,7 @@ func (adapter *ETCDStoreAdapter) makeWatchEvent(event *etcd.Response) (storeadap
 
 func (adapter *ETCDStoreAdapter) MaintainNode(storeNode storeadapter.StoreNode) (<-chan bool, chan (chan bool), error) {
 	if storeNode.TTL == 0 {
-		return nil, nil, storeadapter.ErrorInvalidTTL
+		return nil, nil, storeadapter.NewError(errors.New(storeadapter.ErrorInvalidTTLDescription), storeadapter.ErrorInvalidTTL)
 	}
 
 	if len(storeNode.Value) == 0 {
@@ -588,7 +588,7 @@ func (adapter *ETCDStoreAdapter) maintainNode(storeNode storeadapter.StoreNode, 
 					}
 
 					err = adapter.convertError(err)
-					if err == storeadapter.ErrorKeyNotFound {
+					if cErr, ok := err.(storeadapter.Error); ok && cErr.Type() == storeadapter.ErrorKeyNotFound {
 						created = false
 						continue
 					}
@@ -611,7 +611,7 @@ func (adapter *ETCDStoreAdapter) maintainNode(storeNode storeadapter.StoreNode, 
 					}
 
 					err = adapter.convertError(err)
-					if err == storeadapter.ErrorKeyExists {
+					if cErr, ok := err.(storeadapter.Error); ok && cErr.Type() == storeadapter.ErrorKeyExists {
 						created = true
 						continue
 					}

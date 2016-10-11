@@ -89,7 +89,13 @@ var _ = Describe("ETCD Store Adapter", func() {
 		Context("When getting a non-existent key", func() {
 			It("should return an error", func() {
 				value, err := adapter.Get("/not_a_key")
-				Expect(err).To(Equal(ErrorKeyNotFound))
+
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+				} else {
+					Fail("expected error to be of type ErrorKeyNotFound")
+				}
+
 				Expect(value).To(BeZero())
 			})
 		})
@@ -97,7 +103,13 @@ var _ = Describe("ETCD Store Adapter", func() {
 		Context("when getting a directory", func() {
 			It("should return an error", func() {
 				value, err := adapter.Get("/menu")
-				Expect(err).To(Equal(ErrorNodeIsDirectory))
+
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorNodeIsDirectory))
+				} else {
+					Fail("expected error to be of type ErrorNodeIsDirectory")
+				}
+
 				Expect(value).To(BeZero())
 			})
 		})
@@ -156,7 +168,12 @@ var _ = Describe("ETCD Store Adapter", func() {
 				}
 
 				err := adapter.SetMulti([]StoreNode{dirNode})
-				Expect(err).To(Equal(ErrorNodeIsDirectory))
+
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorNodeIsDirectory))
+				} else {
+					Fail("expected error to be of type ErrorNodeIsDirectory")
+				}
 			})
 		})
 
@@ -292,7 +309,13 @@ var _ = Describe("ETCD Store Adapter", func() {
 		Context("when listing a non-existent key", func() {
 			It("should return an error", func() {
 				value, err := adapter.ListRecursively("/nothing-here")
-				Expect(err).To(Equal(ErrorKeyNotFound))
+
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+				} else {
+					Fail("expected error to be of type ErrorKeyNotFound")
+				}
+
 				Expect(value).To(BeZero())
 			})
 		})
@@ -301,7 +324,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 			It("should return an error", func() {
 				value, err := adapter.ListRecursively("/menu/breakfast")
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(Equal(ErrorNodeIsNotDirectory))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorNodeIsNotDirectory))
+				} else {
+					Fail("expected error to be of type ErrorNodeIsNotDirectory")
+				}
 				Expect(value).To(BeZero())
 			})
 		})
@@ -335,11 +362,19 @@ var _ = Describe("ETCD Store Adapter", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				value, err := adapter.Get("/menu/breakfast")
-				Expect(err).To(Equal(ErrorKeyNotFound))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+				} else {
+					Fail("expected error to be of type ErrorKeyNotFound")
+				}
 				Expect(value).To(BeZero())
 
 				value, err = adapter.Get("/menu/lunch")
-				Expect(err).To(Equal(ErrorKeyNotFound))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+				} else {
+					Fail("expected error to be of type ErrorKeyNotFound")
+				}
 				Expect(value).To(BeZero())
 			})
 		})
@@ -347,7 +382,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 		Context("when deleting a non-existing key", func() {
 			It("should error", func() {
 				err := adapter.Delete("/not-a-key")
-				Expect(err).To(Equal(ErrorKeyNotFound))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+				} else {
+					Fail("expected error to be of type ErrorKeyNotFound")
+				}
 			})
 		})
 
@@ -357,10 +396,18 @@ var _ = Describe("ETCD Store Adapter", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				_, err = adapter.Get("/menu/breakfast")
-				Expect(err).To(Equal(ErrorKeyNotFound))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+				} else {
+					Fail("expected error to be of type ErrorKeyNotFound")
+				}
 
 				_, err = adapter.Get("/menu")
-				Expect(err).To(Equal(ErrorKeyNotFound))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+				} else {
+					Fail("expected error to be of type ErrorKeyNotFound")
+				}
 			})
 		})
 
@@ -403,10 +450,18 @@ var _ = Describe("ETCD Store Adapter", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				_, err = adapter.Get(nodeFoo.Key)
-				Expect(err).To(Equal(ErrorKeyNotFound))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+				} else {
+					Fail("expected error to be of type ErrorKeyNotFound")
+				}
 
 				_, err = adapter.Get(nodeBar.Key)
-				Expect(err).To(Equal(ErrorKeyNotFound))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+				} else {
+					Fail("expected error to be of type ErrorKeyNotFound")
+				}
 			})
 
 			Context("but the comparison fails for one node", func() {
@@ -416,13 +471,21 @@ var _ = Describe("ETCD Store Adapter", func() {
 
 				It("returns an error", func() {
 					err := adapter.CompareAndDelete(nodeFoo, nodeBar)
-					Expect(err).To(Equal(ErrorKeyComparisonFailed))
+					if cErr, ok := err.(Error); ok {
+						Expect(cErr.Type()).To(Equal(ErrorKeyComparisonFailed))
+					} else {
+						Fail("expected error to be of type ErrorKeyComparisonFailed")
+					}
 
 					_, err = adapter.Get(nodeFoo.Key)
 					Expect(err).NotTo(HaveOccurred())
 
 					_, err = adapter.Get(nodeBar.Key)
-					Expect(err).To(Equal(ErrorKeyNotFound))
+					if cErr, ok := err.(Error); ok {
+						Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+					} else {
+						Fail("expected error to be of type ErrorKeyNotFound")
+					}
 				})
 			})
 		})
@@ -430,7 +493,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 		Context("when a node does not exist at the key", func() {
 			It("returns an error", func() {
 				err := adapter.CompareAndDelete(nodeFoo)
-				Expect(err).To(Equal(ErrorKeyNotFound))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+				} else {
+					Fail("expected error to be of type ErrorKeyNotFound")
+				}
 			})
 		})
 
@@ -442,7 +509,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 				parentNode := StoreNode{Key: "/dir", Value: []byte("some value")}
 
 				err = adapter.CompareAndDelete(parentNode)
-				Expect(err).To(Equal(ErrorNodeIsDirectory))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorNodeIsDirectory))
+				} else {
+					Fail("expected error to be of type ErrorNodeIsDirectory")
+				}
 			})
 		})
 	})
@@ -479,10 +550,18 @@ var _ = Describe("ETCD Store Adapter", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				_, err = adapter.Get(nodeFoo.Key)
-				Expect(err).To(Equal(ErrorKeyNotFound))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+				} else {
+					Fail("expected error to be of type ErrorKeyNotFound")
+				}
 
 				_, err = adapter.Get(nodeBar.Key)
-				Expect(err).To(Equal(ErrorKeyNotFound))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+				} else {
+					Fail("expected error to be of type ErrorKeyNotFound")
+				}
 			})
 
 			Context("but the comparison fails for one node", func() {
@@ -491,13 +570,21 @@ var _ = Describe("ETCD Store Adapter", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					err = adapter.CompareAndDeleteByIndex(etcdNodeFoo, etcdNodeBar)
-					Expect(err).To(Equal(ErrorKeyComparisonFailed))
+					if cErr, ok := err.(Error); ok {
+						Expect(cErr.Type()).To(Equal(ErrorKeyComparisonFailed))
+					} else {
+						Fail("expected error to be of type ErrorKeyComparisonFailed")
+					}
 
 					_, err = adapter.Get(nodeFoo.Key)
 					Expect(err).NotTo(HaveOccurred())
 
 					_, err = adapter.Get(nodeBar.Key)
-					Expect(err).To(Equal(ErrorKeyNotFound))
+					if cErr, ok := err.(Error); ok {
+						Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+					} else {
+						Fail("expected error to be of type ErrorKeyNotFound")
+					}
 				})
 			})
 		})
@@ -509,7 +596,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 
 			It("returns an error", func() {
 				err := adapter.CompareAndDeleteByIndex(nodeFoo)
-				Expect(err).To(Equal(ErrorKeyNotFound))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+				} else {
+					Fail("expected error to be of type ErrorKeyNotFound")
+				}
 			})
 		})
 
@@ -522,7 +613,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				err = adapter.CompareAndDeleteByIndex(parentNode)
-				Expect(err).To(Equal(ErrorNodeIsDirectory))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorNodeIsDirectory))
+				} else {
+					Fail("expected error to be of type ErrorNodeIsDirectory")
+				}
 			})
 		})
 	})
@@ -536,9 +631,12 @@ var _ = Describe("ETCD Store Adapter", func() {
 			_, err = adapter.Get("/menu/breakfast")
 			Expect(err).NotTo(HaveOccurred())
 
-			Eventually(func() interface{} {
+			Eventually(func() int {
 				_, err = adapter.Get("/menu/breakfast")
-				return err
+				if cErr, ok := err.(Error); ok {
+					return cErr.Type()
+				}
+				return -1
 			}, 2, 0.01).Should(Equal(ErrorKeyNotFound)) // as of etcd v0.2rc1, etcd seems to take an extra 0.5 seconds to expire its TTLs
 		})
 	})
@@ -579,7 +677,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 				uniqueStoreNodeForThisTest.TTL = 0
 
 				nodeStatus, releaseLock, err := adapter.MaintainNode(uniqueStoreNodeForThisTest)
-				Expect(err).To(Equal(ErrorInvalidTTL))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorInvalidTTL))
+				} else {
+					Fail("expected error to be of type ErrorInvalidTTL")
+				}
 				Expect(nodeStatus).To(BeNil())
 				Expect(releaseLock).To(BeNil())
 			})
@@ -762,7 +864,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 		Context("when a node already exists at the key", func() {
 			It("returns an error", func() {
 				err := adapter.Create(node)
-				Expect(err).To(Equal(ErrorKeyExists))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyExists))
+				} else {
+					Fail("expected error to be of type ErrorKeyExists")
+				}
 			})
 		})
 
@@ -772,7 +878,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				err = adapter.Create(StoreNode{Key: "/dir", Value: []byte("some value")})
-				Expect(err).To(Equal(ErrorKeyExists))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyExists))
+				} else {
+					Fail("expected error to be of type ErrorKeyExists")
+				}
 			})
 		})
 	})
@@ -801,7 +911,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 		Context("when a node does not exist at the key", func() {
 			It("returns an error", func() {
 				err := adapter.Update(node)
-				Expect(err).To(Equal(ErrorKeyNotFound))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+				} else {
+					Fail("expected error to be of type ErrorKeyNotFound")
+				}
 			})
 		})
 
@@ -811,7 +925,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				err = adapter.Update(StoreNode{Key: "/dir", Value: []byte("some value")})
-				Expect(err).To(Equal(ErrorNodeIsDirectory))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorNodeIsDirectory))
+				} else {
+					Fail("expected error to be of type ErrorNodeIsDirectory")
+				}
 			})
 		})
 	})
@@ -850,7 +968,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 				newNode.Value = []byte("some new value")
 
 				err = adapter.CompareAndSwap(wrongNode, newNode)
-				Expect(err).To(Equal(ErrorKeyComparisonFailed))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyComparisonFailed))
+				} else {
+					Fail("expected error to be of type ErrorKeyComparisonFailed")
+				}
 
 				retrievedNode, err := adapter.Get("/foo")
 				Expect(err).NotTo(HaveOccurred())
@@ -861,7 +983,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 		Context("when a node does not exist at the key", func() {
 			It("returns an error", func() {
 				err := adapter.CompareAndSwap(node, node)
-				Expect(err).To(Equal(ErrorKeyNotFound))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+				} else {
+					Fail("expected error to be of type ErrorKeyNotFound")
+				}
 			})
 		})
 
@@ -873,7 +999,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 				newNode := StoreNode{Key: "/dir", Value: []byte("some value")}
 
 				err = adapter.CompareAndSwap(newNode, newNode)
-				Expect(err).To(Equal(ErrorNodeIsDirectory))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorNodeIsDirectory))
+				} else {
+					Fail("expected error to be of type ErrorNodeIsDirectory")
+				}
 			})
 		})
 	})
@@ -912,7 +1042,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 				newNode.Value = []byte("some new value")
 
 				err = adapter.CompareAndSwapByIndex(4271138, newNode)
-				Expect(err).To(Equal(ErrorKeyComparisonFailed))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyComparisonFailed))
+				} else {
+					Fail("expected error to be of type ErrorKeyComparisonFailed")
+				}
 
 				retrievedNode, err := adapter.Get("/foo")
 				Expect(err).NotTo(HaveOccurred())
@@ -923,7 +1057,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 		Context("when a node does not exist at the key", func() {
 			It("returns an error", func() {
 				err := adapter.CompareAndSwapByIndex(4271338, node)
-				Expect(err).To(Equal(ErrorKeyNotFound))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+				} else {
+					Fail("expected error to be of type ErrorKeyNotFound")
+				}
 			})
 		})
 
@@ -935,7 +1073,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 				newNode := StoreNode{Key: "/dir", Value: []byte("some value")}
 
 				err = adapter.CompareAndSwapByIndex(4271338, newNode)
-				Expect(err).To(Equal(ErrorNodeIsDirectory))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorNodeIsDirectory))
+				} else {
+					Fail("expected error to be of type ErrorNodeIsDirectory")
+				}
 			})
 		})
 	})
@@ -1265,14 +1407,22 @@ var _ = Describe("ETCD Store Adapter", func() {
 				time.Sleep(2 * time.Second)
 
 				_, err = adapter.Get("/menu/breakfast")
-				Expect(err).To(Equal(ErrorKeyNotFound))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+				} else {
+					Fail("expected error to be of type ErrorKeyNotFound")
+				}
 			})
 		})
 
 		Context("When the directory does not exist", func() {
 			It("should return a ErrorKeyNotFound", func() {
 				err := adapter.UpdateDirTTL("/non-existent-key", 1)
-				Expect(err).To(Equal(ErrorKeyNotFound))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorKeyNotFound))
+				} else {
+					Fail("expected error to be of type ErrorKeyNotFound")
+				}
 			})
 		})
 
@@ -1282,7 +1432,11 @@ var _ = Describe("ETCD Store Adapter", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				err = adapter.UpdateDirTTL("/menu/breakfast", 1)
-				Expect(err).To(Equal(ErrorNodeIsNotDirectory))
+				if cErr, ok := err.(Error); ok {
+					Expect(cErr.Type()).To(Equal(ErrorNodeIsDirectory))
+				} else {
+					Fail("expected error to be of type ErrorNodeIsDirectory")
+				}
 			})
 		})
 	})
