@@ -39,6 +39,7 @@ func newHTTPClient(options *ETCDOptions, workPool *workpool.WorkPool) *ETCDStore
 		}).Dial,
 		MaxIdleConns:        options.MaxIdleConns,
 		MaxIdleConnsPerHost: options.MaxIdleConns,
+		IdleConnTimeout:     2 * time.Minute,
 	}
 	client.SetTransport(tr)
 	return newAdapter(client, workPool)
@@ -73,6 +74,7 @@ func NewETCDTLSClient(options *ETCDOptions) (*etcd.Client, error) {
 		}).Dial,
 		MaxIdleConns:        options.MaxIdleConns,
 		MaxIdleConnsPerHost: options.MaxIdleConns,
+		IdleConnTimeout:     2 * time.Minute,
 	}
 	client.SetTransport(tr)
 	if options.CAFile != "" {
