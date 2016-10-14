@@ -24,19 +24,28 @@ type ETCDStoreAdapter struct {
 
 func New(options *ETCDOptions, workPool *workpool.WorkPool) (*ETCDStoreAdapter, error) {
 	if options.IsSSL {
-		return newTLSClient(options.ClusterUrls, options.CertFile, options.KeyFile, options.CAFile, workPool)
+		return newTLSClient(options, workPool)
 	}
 
-	return newHTTPClient(options.ClusterUrls, workPool), nil
+	return newHTTPClient(options, workPool), nil
 }
 
-func newHTTPClient(urls []string, workPool *workpool.WorkPool) *ETCDStoreAdapter {
-	client := etcd.NewClient(urls)
+func newHTTPClient(options *ETCDOptions, workPool *workpool.WorkPool) *ETCDStoreAdapter {
+	client := etcd.NewClient(options.ClusterUrls)
+	tr := &http.Transport{
+		Dial: (&net.Dialer{
+			Timeout:   time.Second,
+			KeepAlive: time.Second,
+		}).Dial,
+		MaxIdleConns:        options.MaxIdleConns,
+		MaxIdleConnsPerHost: options.MaxIdleConns,
+	}
+	client.SetTransport(tr)
 	return newAdapter(client, workPool)
 }
 
-func newTLSClient(urls []string, cert, key, caCert string, workPool *workpool.WorkPool) (*ETCDStoreAdapter, error) {
-	client, err := NewETCDTLSClient(urls, cert, key, caCert)
+func newTLSClient(options *ETCDOptions, workPool *workpool.WorkPool) (*ETCDStoreAdapter, error) {
+	client, err := NewETCDTLSClient(options)
 	if err != nil {
 		return nil, err
 	}
@@ -44,9 +53,9 @@ func newTLSClient(urls []string, cert, key, caCert string, workPool *workpool.Wo
 	return newAdapter(client, workPool), nil
 }
 
-func NewETCDTLSClient(urls []string, certFile, keyFile, caCertFile string) (*etcd.Client, error) {
-	client := etcd.NewClient(urls)
-	tlsCert, err := tls.LoadX509KeyPair(certFile, keyFile)
+func NewETCDTLSClient(options *ETCDOptions) (*etcd.Client, error) {
+	client := etcd.NewClient(options.ClusterUrls)
+	tlsCert, err := tls.LoadX509KeyPair(options.CertFile, options.KeyFile)
 	if err != nil {
 		return nil, err
 	}
@@ -62,10 +71,12 @@ func NewETCDTLSClient(urls []string, certFile, keyFile, caCertFile string) (*etc
 			Timeout:   time.Second,
 			KeepAlive: time.Second,
 		}).Dial,
+		MaxIdleConns:        options.MaxIdleConns,
+		MaxIdleConnsPerHost: options.MaxIdleConns,
 	}
 	client.SetTransport(tr)
-	if caCertFile != "" {
-		err = client.AddRootCA(caCertFile)
+	if options.CAFile != "" {
+		err = client.AddRootCA(options.CAFile)
 	}
 	if err != nil {
 		return nil, err
