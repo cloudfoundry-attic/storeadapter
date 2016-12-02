@@ -54,6 +54,11 @@ func newTLSClient(options *ETCDOptions, workPool *workpool.WorkPool) (*ETCDStore
 	return newAdapter(client, workPool), nil
 }
 
+var supportedCipherSuites = []uint16{
+	tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+	tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+}
+
 func NewETCDTLSClient(options *ETCDOptions) (*etcd.Client, error) {
 	client := etcd.NewClient(options.ClusterUrls)
 	tlsCert, err := tls.LoadX509KeyPair(options.CertFile, options.KeyFile)
@@ -64,6 +69,7 @@ func NewETCDTLSClient(options *ETCDOptions) (*etcd.Client, error) {
 	tlsConfig := &tls.Config{
 		Certificates:       []tls.Certificate{tlsCert},
 		InsecureSkipVerify: false,
+		CipherSuites:       supportedCipherSuites,
 	}
 
 	tr := &http.Transport{

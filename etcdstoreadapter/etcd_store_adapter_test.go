@@ -1,7 +1,10 @@
 package etcdstoreadapter_test
 
 import (
+	"crypto/tls"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"time"
 
 	"code.cloudfoundry.org/workpool"
@@ -10,6 +13,7 @@ import (
 	. "github.com/cloudfoundry/storeadapter/storenodematchers"
 	"github.com/cloudfoundry/storeadapter/test_helpers"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
 
@@ -1441,3 +1445,62 @@ var _ = Describe("ETCD Store Adapter", func() {
 		})
 	})
 })
+
+var _ = DescribeTable("TLS cipher suites", func(cipher uint16, pass bool) {
+	tlsCert, err := tls.LoadX509KeyPair(
+		"../assets/server.crt",
+		"../assets/server.key",
+	)
+	Expect(err).ToNot(HaveOccurred())
+	tlsConf := &tls.Config{
+		InsecureSkipVerify: false,
+		MinVersion:         tls.VersionTLS12,
+		CipherSuites:       []uint16{cipher},
+		Certificates:       []tls.Certificate{tlsCert},
+	}
+
+	conns := make(chan *tls.Conn, 100)
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer GinkgoRecover()
+
+		hj, ok := w.(http.Hijacker)
+		Expect(ok).To(BeTrue())
+
+		conn, _, err := hj.Hijack()
+		Expect(err).ToNot(HaveOccurred())
+		defer conn.Close()
+
+		tlsConn, ok := conn.(*tls.Conn)
+		Expect(ok).To(BeTrue())
+		conns <- tlsConn
+	}))
+	server.TLS = tlsConf
+	server.StartTLS()
+	defer server.Close()
+
+	etcdOptions := &ETCDOptions{
+		CertFile:    "../assets/client.crt",
+		KeyFile:     "../assets/client.key",
+		CAFile:      "../assets/ca.crt",
+		ClusterUrls: []string{server.URL},
+		IsSSL:       true,
+	}
+	workPool, err := workpool.NewWorkPool(10)
+	Expect(err).NotTo(HaveOccurred())
+	adapter, err := New(etcdOptions, workPool)
+	Expect(err).ToNot(HaveOccurred())
+	err = adapter.Connect()
+	Expect(err).To(HaveOccurred())
+
+	if pass {
+		var tlsConn *tls.Conn
+		Eventually(conns).Should(Receive(&tlsConn))
+		Expect(tlsConn.ConnectionState().CipherSuite).To(Equal(cipher))
+		return
+	}
+	Consistently(conns).ShouldNot(Receive())
+},
+	Entry("TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, true),
+	Entry("TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384", tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, true),
+	Entry("TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA", tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA, false),
+)
