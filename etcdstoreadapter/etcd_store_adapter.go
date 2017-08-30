@@ -4,8 +4,11 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"log"
+	"math/rand"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,16 +33,52 @@ func New(options *ETCDOptions, workPool *workpool.WorkPool) (*ETCDStoreAdapter, 
 	return newHTTPClient(options, workPool), nil
 }
 
+const alpha = "abcdefghijklmnopqrstuvwxyz"
+
+func isHostname(addr string) bool {
+	return len(addr) > 0 && strings.Contains(alpha, strings.ToLower(string(addr[0])))
+}
+
+func resolveRandIP(addr string) (string, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", err
+	}
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return "", err
+	}
+
+	if len(ips) == 0 {
+		return "", fmt.Errorf("lookup failed with addr %s", addr)
+	}
+
+	return net.JoinHostPort(ips[rand.Int()%len(ips)].String(), port), nil
+}
+
+func dnsDialer(network, addr string) (net.Conn, error) {
+	var err error
+	if isHostname(addr) {
+		addr, err = resolveRandIP(addr)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return (&net.Dialer{
+		Timeout:   time.Second,
+		KeepAlive: time.Second,
+	}).Dial(network, addr)
+}
+
 func newHTTPClient(options *ETCDOptions, workPool *workpool.WorkPool) *ETCDStoreAdapter {
 	client := etcd.NewClient(options.ClusterUrls)
 	tr := &http.Transport{
-		Dial: (&net.Dialer{
-			Timeout:   time.Second,
-			KeepAlive: time.Second,
-		}).Dial,
-		MaxIdleConns:        options.MaxIdleConns,
-		MaxIdleConnsPerHost: options.MaxIdleConns,
-		IdleConnTimeout:     2 * time.Minute,
+		Dial:                  dnsDialer,
+		MaxIdleConns:          options.MaxIdleConns,
+		MaxIdleConnsPerHost:   options.MaxIdleConns,
+		IdleConnTimeout:       2 * time.Minute,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 10 * time.Second,
 	}
 	client.SetTransport(tr)
 	return newAdapter(client, workPool)
@@ -67,14 +106,13 @@ func NewETCDTLSClient(options *ETCDOptions) (*etcd.Client, error) {
 	}
 
 	tr := &http.Transport{
-		TLSClientConfig: tlsConfig,
-		Dial: (&net.Dialer{
-			Timeout:   time.Second,
-			KeepAlive: time.Second,
-		}).Dial,
-		MaxIdleConns:        options.MaxIdleConns,
-		MaxIdleConnsPerHost: options.MaxIdleConns,
-		IdleConnTimeout:     2 * time.Minute,
+		TLSClientConfig:       tlsConfig,
+		Dial:                  dnsDialer,
+		MaxIdleConns:          options.MaxIdleConns,
+		MaxIdleConnsPerHost:   options.MaxIdleConns,
+		IdleConnTimeout:       2 * time.Minute,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 10 * time.Second,
 	}
 	client.SetTransport(tr)
 	if options.CAFile != "" {
@@ -181,7 +219,11 @@ func (adapter *ETCDStoreAdapter) Get(key string) (storeadapter.StoreNode, error)
 		done <- true
 	})
 
-	<-done
+	select {
+	case <-done:
+	case <-time.After(time.Minute):
+		log.Panic("Get HTTP request timeout")
+	}
 
 	if err != nil {
 		return storeadapter.StoreNode{}, adapter.convertError(err)
@@ -211,7 +253,11 @@ func (adapter *ETCDStoreAdapter) ListRecursively(key string) (storeadapter.Store
 		done <- true
 	})
 
-	<-done
+	select {
+	case <-done:
+	case <-time.After(time.Minute):
+		log.Panic("ListRecursiveley HTTP request timeout")
+	}
 
 	if err != nil {
 		return storeadapter.StoreNode{}, adapter.convertError(err)
